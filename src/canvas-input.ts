@@ -14,14 +14,19 @@ export function attachCanvasInput(canvas: HTMLCanvasElement): CanvasInputControl
   const strokes: Stroke[] = [];
   let currentStroke: Stroke | null = null;
 
+  function toCanvasPoint(event: MouseEvent): Point {
+    const rect = canvas.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  }
+
   canvas.addEventListener("pointerdown", (event) => {
-    currentStroke = [{ x: event.clientX, y: event.clientY }];
+    currentStroke = [toCanvasPoint(event)];
     strokes.push(currentStroke);
   });
 
   canvas.addEventListener("pointermove", (event) => {
     if (!currentStroke) return;
-    currentStroke.push({ x: event.clientX, y: event.clientY });
+    currentStroke.push(toCanvasPoint(event));
   });
 
   canvas.addEventListener("pointerup", () => {
