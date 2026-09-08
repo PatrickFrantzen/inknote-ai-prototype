@@ -6,7 +6,7 @@ import { createServer } from "node:http";
 
 const PORT = process.env.PORT ?? 8787;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.6-flash";
 const MAX_BODY_BYTES = 15 * 1024 * 1024; // room for a base64 PNG well under Gemini's 20MB inline request limit
 
 const INTERPRETATION_PROMPT =

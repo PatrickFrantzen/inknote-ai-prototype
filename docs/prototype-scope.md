@@ -41,7 +41,7 @@ Prove the smallest useful demo:
 - Pointer Events for stylus/touch/mouse input
 - Local save using LocalStorage
 - Mocked AI interpretation result, with a toggle to switch to a real Gemini interpretation
-- Real Gemini (`gemini-2.5-flash`) vision interpretation, via a minimal local proxy server
+- Real Gemini (`gemini-3.6-flash`) vision interpretation, via a minimal local proxy server
   that holds the API key server-side (see `docs/agents/gemini-integration.md`) -- chosen
   for its genuinely free tier, since a ChatGPT Plus/Pro subscription does not cover
   OpenAI API usage

@@ -72,12 +72,14 @@ Untick it to fall back to the mocked interpreter without needing the server runn
 
 ## Model
 
-Configured via `GEMINI_MODEL` in `.env`, defaulting to `gemini-2.5-flash`
+Configured via `GEMINI_MODEL` in `.env`, defaulting to `gemini-3.6-flash`
 (confirmed multimodal input: text, image, video, audio; on the free tier).
-Change it to a different Flash-tier model (e.g. a newer `gemini-3.x-flash`)
-if you want to try a newer model -- check current free-tier availability at
-<https://ai.google.dev/gemini-api/docs/models> first, since that list moves
-fast.
+`gemini-2.5-flash` was the original default but is no longer available to
+new users as of testing on 2026-09-08 (Google's API returns 404 and points
+to `gemini-3.6-flash` instead). Change the default to a different Flash-tier
+model if you want to try a newer one -- check current free-tier availability
+at <https://ai.google.dev/gemini-api/docs/models> first, since that list
+moves fast.
 
 ## Known limitations (prototype, not production)
 
