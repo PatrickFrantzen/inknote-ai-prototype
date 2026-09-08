@@ -28,12 +28,28 @@ or deployment story -- it is a local dev proxy, not a real backend.
 
 ## Setup
 
+`server/index.mjs` reads `GEMINI_API_KEY` (and optional `GEMINI_MODEL`) from
+`process.env`, so either of these works:
+
+**Local machine (or anywhere you can create files):**
+
 ```bash
 cp .env.example .env
 # edit .env: paste your GEMINI_API_KEY (get one at https://aistudio.google.com/apikey)
 npm run server   # starts the proxy on http://localhost:8787
 npm run dev      # starts the app; Vite proxies /api/* to the server above
 ```
+
+**Claude Code on the web / mobile (no local filesystem to hand):** set
+`GEMINI_API_KEY` as a cloud environment variable instead of a `.env` file --
+open the environment's settings (the cloud icon next to the message box on
+claude.ai/code, gear icon on hover) and add it under **Environment
+variables**. That dialog isn't exposed in the native mobile app, so do this
+step from a browser (mobile browser works) if you're on mobile; the value
+then applies to every session in that environment afterwards, mobile app
+included. New sessions pick it up automatically -- a session already running
+when you set it won't see it until you start a new one. No `.env` file or
+code change needed either way.
 
 Then tick "Echte Gemini-Interpretation" in the UI before pressing "Interpretieren".
 Untick it to fall back to the mocked interpreter without needing the server running.
