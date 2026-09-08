@@ -10,10 +10,30 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.6-flash";
 const MAX_BODY_BYTES = 15 * 1024 * 1024; // room for a base64 PNG well under Gemini's 20MB inline request limit
 
 const INTERPRETATION_PROMPT =
-  "Du bekommst das Bild einer handschriftlichen Notiz. Erstelle daraus einen kurzen, " +
-  "strukturierten internen Dokumenteintrag auf Deutsch: fasse die wesentlichen Punkte " +
-  "als prägnante Stichpunkte zusammen. Gib nur den Dokumenteintrag zurück, ohne " +
-  "zusätzliche Erklärungen oder Rückfragen.";
+  "Du bekommst das Bild eines Notizblatts mit einer oder mehreren handschriftlichen " +
+  "Einzelnotizen (räumlich oder inhaltlich voneinander abgegrenzt). Erkenne jede " +
+  "einzelne Notiz separat und werte sie aus. Gib für jede Notiz eine kurze Überschrift " +
+  "(Thema/Stichwort) und die wesentlichen Punkte als prägnante Stichpunkte auf Deutsch " +
+  "zurück. Antworte ausschließlich im vorgegebenen JSON-Schema, ohne zusätzliche " +
+  "Erklärungen oder Rückfragen.";
+
+const NOTES_RESPONSE_SCHEMA = {
+  type: "object",
+  properties: {
+    notes: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          heading: { type: "string" },
+          bullets: { type: "array", items: { type: "string" } },
+        },
+        required: ["heading", "bullets"],
+      },
+    },
+  },
+  required: ["notes"],
+};
 
 async function readJsonBody(req) {
   const chunks = [];
@@ -34,9 +54,32 @@ function parseDataUrl(dataUrl) {
   return { mimeType: match[1], data: match[2] };
 }
 
-function extractSummary(geminiResponseBody) {
+function isValidDetectedNote(note) {
+  return (
+    note !== null &&
+    typeof note === "object" &&
+    typeof note.heading === "string" &&
+    Array.isArray(note.bullets) &&
+    note.bullets.every((bullet) => typeof bullet === "string")
+  );
+}
+
+function extractNotes(geminiResponseBody) {
   const parts = geminiResponseBody.candidates?.[0]?.content?.parts ?? [];
-  return parts.find((part) => typeof part.text === "string")?.text;
+  const text = parts.find((part) => typeof part.text === "string")?.text;
+  if (!text) return null;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+
+  if (!Array.isArray(parsed?.notes) || !parsed.notes.every(isValidDetectedNote)) {
+    return null;
+  }
+  return parsed.notes;
 }
 
 async function handleInterpret(req, res) {
@@ -81,6 +124,10 @@ async function handleInterpret(req, res) {
               ],
             },
           ],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: NOTES_RESPONSE_SCHEMA,
+          },
         }),
       },
     );
@@ -99,15 +146,15 @@ async function handleInterpret(req, res) {
     return;
   }
 
-  const summary = extractSummary(responseBody);
-  if (!summary) {
+  const notes = extractNotes(responseBody);
+  if (!notes) {
     res.writeHead(502, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Gemini response did not contain a text summary" }));
+    res.end(JSON.stringify({ error: "Gemini response did not contain valid structured notes" }));
     return;
   }
 
   res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({ summary }));
+  res.end(JSON.stringify({ notes }));
 }
 
 const server = createServer((req, res) => {

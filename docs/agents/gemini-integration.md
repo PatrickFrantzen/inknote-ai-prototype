@@ -63,10 +63,17 @@ Untick it to fall back to the mocked interpreter without needing the server runn
 3. `server/index.mjs` receives that request, splits the data URL into
    `mimeType`/base64 `data`, and calls the Gemini API
    (`POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`)
-   with an `inline_data` image part plus a German text prompt asking for a
-   structured internal document entry, then relays back `{ summary }`.
+   with an `inline_data` image part plus a German text prompt. The prompt
+   frames the image as a note sheet that may contain several separate
+   handwritten notes and asks Gemini to detect each one individually. The
+   request also sets `generationConfig.responseMimeType` to
+   `application/json` with a `responseSchema` (`{ notes: [{ heading,
+   bullets }] }`), so Gemini returns structured JSON instead of free text.
+   The server parses and validates that JSON before relaying it back as
+   `{ notes }`.
 4. The client wraps that into an `InternalDocumentEntry` (see
-   `src/interpretation.ts`) -- the same shape the mock interpreter produces,
+   `src/interpretation.ts`), whose `notes: DetectedNote[]` field holds one
+   entry per detected note -- the same shape the mock interpreter produces,
    so the rest of the app (`src/app.ts`, `src/main.ts`) doesn't care which
    interpreter is active.
 

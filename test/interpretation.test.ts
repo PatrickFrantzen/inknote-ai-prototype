@@ -13,7 +13,8 @@ test("the mock interpreter turns a raw note into a structured internal document 
   const entry = await mockInterpreter(note);
 
   expect(entry.noteId).toBe("note-1");
-  expect(entry.summary).toContain("order more filament");
+  expect(entry.notes.length).toBeGreaterThan(0);
+  expect(entry.notes[0]?.bullets.join(" ")).toContain("order more filament");
   expect(new Date(entry.createdAt).toString()).not.toBe("Invalid Date");
 });
 
@@ -25,7 +26,7 @@ test("interpretNote sends the raw note through the given interpreter", async () 
   };
   const stubEntry: InternalDocumentEntry = {
     noteId: "note-2",
-    summary: "leaking valve needs repair",
+    notes: [{ heading: "Ventil", bullets: ["leaking valve needs repair"] }],
     createdAt: "2026-01-02T09:05:00.000Z",
   };
   const stubInterpreter: Interpreter = async () => stubEntry;

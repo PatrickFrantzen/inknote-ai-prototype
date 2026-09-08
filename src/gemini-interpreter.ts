@@ -1,5 +1,5 @@
 import type { Stroke } from "./canvas-input";
-import type { Interpreter } from "./interpretation";
+import type { DetectedNote, Interpreter } from "./interpretation";
 
 export interface GeminiInterpreterDeps {
   /** Path of the local proxy endpoint that actually calls the Gemini API with the secret key. */
@@ -51,11 +51,11 @@ export function createGeminiInterpreter(deps: GeminiInterpreterDeps = {}): Inter
       throw new Error(`Interpretation request failed with status ${response.status}`);
     }
 
-    const data = (await response.json()) as { summary: string };
+    const data = (await response.json()) as { notes: DetectedNote[] };
 
     return {
       noteId: note.id,
-      summary: data.summary,
+      notes: data.notes,
       createdAt: new Date().toISOString(),
     };
   };

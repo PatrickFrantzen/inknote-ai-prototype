@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { createGeminiInterpreter } from "../src/gemini-interpreter";
 import type { RawNote } from "../src/note-store";
 
-test("interprets a note by posting its rasterized image to the proxy and returns the resulting summary", async () => {
+test("interprets a note by posting its rasterized image to the proxy and returns the resulting notes", async () => {
   const note: RawNote = {
     id: "note-9",
     content: JSON.stringify([[{ x: 0, y: 0 }]]),
@@ -11,7 +11,10 @@ test("interprets a note by posting its rasterized image to the proxy and returns
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const stubFetch = (async (url: string, init: RequestInit) => {
     calls.push({ url, init });
-    return new Response(JSON.stringify({ summary: "Notiz: Schrauben bestellen" }), { status: 200 });
+    return new Response(
+      JSON.stringify({ notes: [{ heading: "Einkauf", bullets: ["Schrauben bestellen"] }] }),
+      { status: 200 },
+    );
   }) as typeof fetch;
 
   const interpreter = createGeminiInterpreter({
@@ -22,7 +25,7 @@ test("interprets a note by posting its rasterized image to the proxy and returns
   const entry = await interpreter(note);
 
   expect(entry.noteId).toBe("note-9");
-  expect(entry.summary).toBe("Notiz: Schrauben bestellen");
+  expect(entry.notes).toEqual([{ heading: "Einkauf", bullets: ["Schrauben bestellen"] }]);
   expect(calls[0]?.url).toBe("/api/interpret");
   expect(JSON.parse(calls[0]?.init.body as string)).toEqual({
     noteId: "note-9",

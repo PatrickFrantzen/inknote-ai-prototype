@@ -1,8 +1,13 @@
 import type { RawNote } from "./note-store";
 
+export interface DetectedNote {
+  heading: string;
+  bullets: string[];
+}
+
 export interface InternalDocumentEntry {
   noteId: string;
-  summary: string;
+  notes: DetectedNote[];
   createdAt: string;
 }
 
@@ -10,7 +15,7 @@ export type Interpreter = (note: RawNote) => Promise<InternalDocumentEntry>;
 
 export const mockInterpreter: Interpreter = async (note) => ({
   noteId: note.id,
-  summary: `Mock interpretation of: ${note.content}`,
+  notes: [{ heading: "Mock-Notiz", bullets: [`Mock interpretation of: ${note.content}`] }],
   createdAt: new Date().toISOString(),
 });
 
