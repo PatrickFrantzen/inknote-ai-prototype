@@ -12,6 +12,12 @@ API usage is billed separately through <https://platform.openai.com>. Create an
 API key at <https://platform.openai.com/settings/organization/api-keys> and make
 sure billing/credits are set up there before testing this.
 
+This also applies to ChatGPT Pro's included Codex usage: that coverage only
+applies when Codex itself is authenticated via "Sign in with ChatGPT" (the
+Codex CLI/IDE tooling). It does not extend to a custom app like this one
+calling the Responses API with a platform API key -- that always goes through
+the separate pay-as-you-go API billing, regardless of your ChatGPT plan.
+
 ## Why there's a server now
 
 OpenAI's own docs are explicit: an API key must never be exposed in client-side
@@ -50,11 +56,11 @@ Untick it to fall back to the mocked interpreter without needing the server runn
 
 ## Model
 
-Configured via `OPENAI_MODEL` in `.env`, defaulting to `gpt-6-astra` (current
-as of September 2026). It only just started rolling out at the time this was
-written, so it may not yet be available on every account -- change
-`OPENAI_MODEL` to whatever vision-capable model your account has access to if
-you get a model-not-found style error.
+Configured via `OPENAI_MODEL` in `.env`, defaulting to `gpt-5.5` (input
+modalities: text + image; supported on the Responses API). Change it to
+whatever vision-capable model your account has access to if you get a
+model-not-found style error -- e.g. `gpt-5.5-pro` for higher accuracy at a
+higher price, or an older vision-capable model.
 
 ## Known limitations (prototype, not production)
 

@@ -6,7 +6,7 @@ import { createServer } from "node:http";
 
 const PORT = process.env.PORT ?? 8787;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-6-astra";
+const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-5.5";
 const MAX_BODY_BYTES = 15 * 1024 * 1024; // room for a base64 PNG well under OpenAI's 20MB image limit
 
 const INTERPRETATION_PROMPT =
