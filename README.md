@@ -5,7 +5,7 @@ A prototype for testing whether handwritten tablet notes can be captured, stored
 ## Status
 
 Working prototype: draw a note, save it locally, interpret it via a mocked
-interpreter or real OpenAI vision call.
+interpreter or a real Gemini vision call.
 
 ## Running it
 
@@ -15,8 +15,9 @@ npm run dev      # app on http://localhost:5173
 npm run test     # unit tests
 ```
 
-For the real OpenAI interpretation (optional, the mock works without it), see
-[`docs/agents/openai-integration.md`](docs/agents/openai-integration.md).
+For the real Gemini interpretation (optional, the mock works without it,
+and Gemini has a free tier -- see below for why), see
+[`docs/agents/gemini-integration.md`](docs/agents/gemini-integration.md).
 
 ## Core idea
 

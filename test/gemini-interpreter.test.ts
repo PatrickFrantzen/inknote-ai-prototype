@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { createOpenAIInterpreter } from "../src/openai-interpreter";
+import { createGeminiInterpreter } from "../src/gemini-interpreter";
 import type { RawNote } from "../src/note-store";
 
 test("interprets a note by posting its rasterized image to the proxy and returns the resulting summary", async () => {
@@ -14,7 +14,7 @@ test("interprets a note by posting its rasterized image to the proxy and returns
     return new Response(JSON.stringify({ summary: "Notiz: Schrauben bestellen" }), { status: 200 });
   }) as typeof fetch;
 
-  const interpreter = createOpenAIInterpreter({
+  const interpreter = createGeminiInterpreter({
     fetchImpl: stubFetch,
     rasterizeStrokes: () => "data:image/png;base64,STUB",
   });
@@ -38,7 +38,7 @@ test("throws a descriptive error when the proxy responds with a failure status",
   };
   const stubFetch = (async () => new Response("upstream error", { status: 500 })) as typeof fetch;
 
-  const interpreter = createOpenAIInterpreter({
+  const interpreter = createGeminiInterpreter({
     fetchImpl: stubFetch,
     rasterizeStrokes: () => "data:image/png;base64,STUB",
   });

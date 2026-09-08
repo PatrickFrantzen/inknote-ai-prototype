@@ -3,9 +3,9 @@ import type { Stroke } from "./canvas-input";
 import { attachCanvasInput } from "./canvas-input";
 import { mockInterpreter } from "./interpretation";
 import { loadLatestNote } from "./note-store";
-import { createOpenAIInterpreter } from "./openai-interpreter";
+import { createGeminiInterpreter } from "./gemini-interpreter";
 
-const openAIInterpreter = createOpenAIInterpreter();
+const geminiInterpreter = createGeminiInterpreter();
 const useRealAiCheckbox = document.querySelector<HTMLInputElement>("#use-real-ai")!;
 
 const drawingCanvas = document.querySelector<HTMLCanvasElement>("#drawing-canvas")!;
@@ -85,7 +85,7 @@ interpretButton.addEventListener("click", async () => {
   interpretButton.disabled = true;
   entryEl.textContent = "Wird interpretiert …";
   try {
-    const interpreter = useRealAiCheckbox.checked ? openAIInterpreter : mockInterpreter;
+    const interpreter = useRealAiCheckbox.checked ? geminiInterpreter : mockInterpreter;
     const entry = await interpretLatestNote(interpreter);
     entryEl.textContent = entry ? entry.summary : "Keine gespeicherte Notiz zum Interpretieren.";
   } catch (error) {

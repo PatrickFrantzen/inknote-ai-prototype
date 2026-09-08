@@ -1,8 +1,8 @@
 import type { Stroke } from "./canvas-input";
 import type { Interpreter } from "./interpretation";
 
-export interface OpenAIInterpreterDeps {
-  /** Path of the local proxy endpoint that actually calls the OpenAI API with the secret key. */
+export interface GeminiInterpreterDeps {
+  /** Path of the local proxy endpoint that actually calls the Gemini API with the secret key. */
   proxyUrl?: string;
   fetchImpl?: typeof fetch;
   /** Turns the drawn strokes into a raster image the vision model can read. Defaults to a real <canvas> render. */
@@ -32,7 +32,7 @@ function defaultRasterizeStrokes(strokes: Stroke[]): string {
   return canvas.toDataURL("image/png");
 }
 
-export function createOpenAIInterpreter(deps: OpenAIInterpreterDeps = {}): Interpreter {
+export function createGeminiInterpreter(deps: GeminiInterpreterDeps = {}): Interpreter {
   const proxyUrl = deps.proxyUrl ?? "/api/interpret";
   const fetchImpl = deps.fetchImpl ?? fetch;
   const rasterizeStrokes = deps.rasterizeStrokes ?? defaultRasterizeStrokes;
