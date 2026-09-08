@@ -4,7 +4,19 @@ A prototype for testing whether handwritten tablet notes can be captured, stored
 
 ## Status
 
-Prototype planning only. No application code has been written yet.
+Working prototype: draw a note, save it locally, interpret it via a mocked
+interpreter or real OpenAI vision call.
+
+## Running it
+
+```bash
+npm install
+npm run dev      # app on http://localhost:5173
+npm run test     # unit tests
+```
+
+For the real OpenAI interpretation (optional, the mock works without it), see
+[`docs/agents/openai-integration.md`](docs/agents/openai-integration.md).
 
 ## Core idea
 

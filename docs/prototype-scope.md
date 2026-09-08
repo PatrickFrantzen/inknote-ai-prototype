@@ -40,7 +40,9 @@ Prove the smallest useful demo:
 - Canvas-based handwriting area
 - Pointer Events for stylus/touch/mouse input
 - Local save using LocalStorage
-- Mocked AI interpretation result
+- Mocked AI interpretation result, with a toggle to switch to a real OpenAI interpretation
+- Real OpenAI (GPT-6 Astra) vision interpretation, via a minimal local proxy server that
+  holds the API key server-side (see `docs/agents/openai-integration.md`)
 - Display of original handwritten note and interpreted document entry
 - Clear separation between raw handwritten note and interpreted output
 
@@ -48,8 +50,9 @@ Prove the smallest useful demo:
 
 - User accounts
 - Real provider login
-- Real OpenAI/Anthropic/LLM integration
-- Backend API
+- Real Anthropic/other-LLM integration (OpenAI is now integrated, see above)
+- A production backend (the local proxy server exists only to keep the OpenAI key
+  off the client; it has no persistence, auth, or deployment story)
 - Database
 - Cloud sync
 - Offline sync beyond simple local save
@@ -63,11 +66,10 @@ Prove the smallest useful demo:
 
 After the mock workflow feels right, evaluate how to turn handwriting into useful text/structure:
 
-- direct image-to-text interpretation with a multimodal LLM
-- OCR first, LLM second
-- provider options such as OpenAI, Anthropic, Gemini, or local models
+- OCR first, LLM second (the current approach sends the raw drawing straight to a vision model)
+- provider options beyond OpenAI, such as Anthropic, Gemini, or local models
 - local-first storage options such as IndexedDB
-- secure handling of user-provided API keys
+- a real deployment story for the interpretation server (currently a local-only dev proxy)
 
 ## Product assumptions for now
 

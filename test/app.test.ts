@@ -20,15 +20,15 @@ test("saving drawn strokes persists them as the latest raw note", () => {
   expect(loadLatestNote()).toEqual(note);
 });
 
-test("interpreting with nothing saved yet returns null", () => {
+test("interpreting with nothing saved yet returns null", async () => {
   const stubInterpreter: Interpreter = () => {
     throw new Error("should not be called");
   };
 
-  expect(interpretLatestNote(stubInterpreter)).toBeNull();
+  expect(await interpretLatestNote(stubInterpreter)).toBeNull();
 });
 
-test("interpreting the latest saved note sends it through the given interpreter", () => {
+test("interpreting the latest saved note sends it through the given interpreter", async () => {
   const strokes = [
     [
       { x: 2, y: 2 },
@@ -36,13 +36,13 @@ test("interpreting the latest saved note sends it through the given interpreter"
     ],
   ];
   const note = saveDrawnNote(strokes);
-  const stubInterpreter: Interpreter = (n) => ({
+  const stubInterpreter: Interpreter = async (n) => ({
     noteId: n.id,
     summary: "stub summary",
     createdAt: "2026-01-01T00:00:00.000Z",
   });
 
-  expect(interpretLatestNote(stubInterpreter)).toEqual({
+  expect(await interpretLatestNote(stubInterpreter)).toEqual({
     noteId: note.id,
     summary: "stub summary",
     createdAt: "2026-01-01T00:00:00.000Z",

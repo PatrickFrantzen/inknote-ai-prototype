@@ -3,6 +3,10 @@ import type { Stroke } from "./canvas-input";
 import { attachCanvasInput } from "./canvas-input";
 import { mockInterpreter } from "./interpretation";
 import { loadLatestNote } from "./note-store";
+import { createOpenAIInterpreter } from "./openai-interpreter";
+
+const openAIInterpreter = createOpenAIInterpreter();
+const useRealAiCheckbox = document.querySelector<HTMLInputElement>("#use-real-ai")!;
 
 const drawingCanvas = document.querySelector<HTMLCanvasElement>("#drawing-canvas")!;
 const previewCanvas = document.querySelector<HTMLCanvasElement>("#raw-note-preview")!;
@@ -77,13 +81,18 @@ saveButton.addEventListener("click", () => {
   renderSavedNotePreview();
 });
 
-interpretButton.addEventListener("click", () => {
-  const entry = interpretLatestNote(mockInterpreter);
-  if (!entry) {
-    entryEl.textContent = "Keine gespeicherte Notiz zum Interpretieren.";
-    return;
+interpretButton.addEventListener("click", async () => {
+  interpretButton.disabled = true;
+  entryEl.textContent = "Wird interpretiert …";
+  try {
+    const interpreter = useRealAiCheckbox.checked ? openAIInterpreter : mockInterpreter;
+    const entry = await interpretLatestNote(interpreter);
+    entryEl.textContent = entry ? entry.summary : "Keine gespeicherte Notiz zum Interpretieren.";
+  } catch (error) {
+    entryEl.textContent = `Interpretation fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`;
+  } finally {
+    interpretButton.disabled = false;
   }
-  entryEl.textContent = entry.summary;
 });
 
 renderSavedNotePreview();

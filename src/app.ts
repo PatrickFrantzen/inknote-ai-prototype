@@ -15,7 +15,7 @@ export function saveDrawnNote(strokes: Stroke[]): RawNote {
   return note;
 }
 
-export function interpretLatestNote(interpreter: Interpreter): InternalDocumentEntry | null {
+export async function interpretLatestNote(interpreter: Interpreter): Promise<InternalDocumentEntry | null> {
   const note = loadLatestNote();
   return note ? interpretNote(note, interpreter) : null;
 }
