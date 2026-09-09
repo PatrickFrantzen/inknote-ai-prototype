@@ -25,11 +25,6 @@ function matchCanvasSizeToDisplay(canvas: HTMLCanvasElement) {
 matchCanvasSizeToDisplay(drawingCanvas);
 matchCanvasSizeToDisplay(previewCanvas);
 
-const drawingContext = drawingCanvas.getContext("2d")!;
-drawingContext.lineWidth = 2;
-drawingContext.lineCap = "round";
-drawingContext.strokeStyle = "#1c1917";
-
 function drawStroke(context: CanvasRenderingContext2D, stroke: Stroke) {
   const [first, ...rest] = stroke;
   if (!first) return;
