@@ -1,0 +1,113 @@
+<!doctype html>
+<!--
+  PROTOTYPE UI. Throwaway first slice: draw a note on a tablet canvas, save
+  it locally, then trigger a mocked AI interpretation. No real backend, no
+  real LLM call -- see docs/prototype-scope.md for the full scope.
+-->
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InkNote AI Prototype</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        padding: 1.5rem;
+        background: #f5f5f4;
+        color: #1c1917;
+      }
+      h1 {
+        font-size: 1.25rem;
+        margin: 0 0 1rem;
+      }
+      #drawing-canvas {
+        touch-action: none;
+        border: 2px solid #44403c;
+        border-radius: 8px;
+        background: #fff;
+        display: block;
+        width: 100%;
+        max-width: 800px;
+        height: 320px;
+      }
+      .controls {
+        display: flex;
+        gap: 0.75rem;
+        margin: 1rem 0;
+      }
+      button {
+        font-size: 1rem;
+        padding: 0.75rem 1.25rem;
+        border-radius: 8px;
+        border: 1px solid #44403c;
+        background: #fff;
+        cursor: pointer;
+      }
+      button:active {
+        background: #e7e5e4;
+      }
+      .panels {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        max-width: 800px;
+      }
+      .panel {
+        border: 1px solid #d6d3d1;
+        border-radius: 8px;
+        padding: 0.75rem;
+        background: #fff;
+        min-height: 4rem;
+      }
+      .panel h2 {
+        font-size: 0.9rem;
+        margin: 0 0 0.5rem;
+        color: #57534e;
+      }
+      #raw-note-preview {
+        border: 1px dashed #d6d3d1;
+        width: 100%;
+        height: 120px;
+      }
+      #interpreted-entry {
+        white-space: pre-wrap;
+        font-size: 0.95rem;
+      }
+      .status {
+        font-size: 0.85rem;
+        color: #78716c;
+        margin-top: 0.25rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>InkNote AI Prototype</h1>
+
+    <canvas id="drawing-canvas"></canvas>
+
+    <div class="controls">
+      <button id="clear-button" type="button">Löschen</button>
+      <button id="save-button" type="button">Speichern</button>
+      <button id="interpret-button" type="button">Interpretieren</button>
+      <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem">
+        <input type="checkbox" id="use-real-ai" checked />
+        Echte Gemini-Interpretation (Server muss laufen: <code>npm run server</code>)
+      </label>
+    </div>
+    <p class="status" id="status"></p>
+
+    <div class="panels">
+      <div class="panel">
+        <h2>Rohe Notiz (gespeichert)</h2>
+        <canvas id="raw-note-preview"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Interner Dokumenteintrag (interpretiert)</h2>
+        <div id="interpreted-entry">Noch keine Interpretation.</div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

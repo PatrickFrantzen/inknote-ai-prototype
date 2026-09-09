@@ -4,7 +4,20 @@ A prototype for testing whether handwritten tablet notes can be captured, stored
 
 ## Status
 
-Prototype planning only. No application code has been written yet.
+Working prototype: draw a note, save it locally, interpret it via a mocked
+interpreter or a real Gemini vision call.
+
+## Running it
+
+```bash
+npm install
+npm run dev      # app on http://localhost:5173
+npm run test     # unit tests
+```
+
+For the real Gemini interpretation (optional, the mock works without it,
+and Gemini has a free tier -- see below for why), see
+[`docs/agents/gemini-integration.md`](docs/agents/gemini-integration.md).
 
 ## Core idea
 
