@@ -52,10 +52,16 @@ function serveStatic(req, res) {
 const INTERPRETATION_PROMPT =
   "Du bekommst das Bild eines Notizblatts mit einer oder mehreren handschriftlichen " +
   "Einzelnotizen (räumlich oder inhaltlich voneinander abgegrenzt). Erkenne jede " +
-  "einzelne Notiz separat und werte sie aus. Gib für jede Notiz eine kurze Überschrift " +
-  "(Thema/Stichwort) und die wesentlichen Punkte als prägnante Stichpunkte auf Deutsch " +
-  "zurück. Antworte ausschließlich im vorgegebenen JSON-Schema, ohne zusätzliche " +
-  "Erklärungen oder Rückfragen.";
+  "einzelne Notiz separat und extrahiere für jede die folgenden Kategorien, sofern " +
+  "im Text tatsächlich vorhanden: customerDetails (Kunde: name, address), activity " +
+  "(Tätigkeit), materials (Material, als Liste), quantityUnit (Menge/Einheit), time " +
+  "(Zeit), estimate (Schätzung/Preis), officeReminder (Hinweis fürs Büro), " +
+  "transcription (wörtliche Übertragung des handschriftlichen Texts). Lass eine " +
+  "Kategorie komplett weg, wenn sie im Text nicht vorkommt -- erfinde nichts. Ist eine " +
+  "Kategorie zwar vorhanden, aber schwer lesbar oder mehrdeutig, trage sie trotzdem " +
+  "ein und nenne ihren Feldnamen zusätzlich in uncertainty (Liste der Feldnamen, bei " +
+  "denen du unsicher bist). Antworte ausschließlich im vorgegebenen JSON-Schema, ohne " +
+  "zusätzliche Erklärungen oder Rückfragen.";
 
 const NOTES_RESPONSE_SCHEMA = {
   type: "object",
@@ -65,10 +71,22 @@ const NOTES_RESPONSE_SCHEMA = {
       items: {
         type: "object",
         properties: {
-          heading: { type: "string" },
-          bullets: { type: "array", items: { type: "string" } },
+          customerDetails: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              address: { type: "string" },
+            },
+          },
+          activity: { type: "string" },
+          materials: { type: "array", items: { type: "string" } },
+          quantityUnit: { type: "string" },
+          time: { type: "string" },
+          estimate: { type: "string" },
+          officeReminder: { type: "string" },
+          transcription: { type: "string" },
+          uncertainty: { type: "array", items: { type: "string" } },
         },
-        required: ["heading", "bullets"],
       },
     },
   },
@@ -94,16 +112,6 @@ function parseDataUrl(dataUrl) {
   return { mimeType: match[1], data: match[2] };
 }
 
-function isValidDetectedNote(note) {
-  return (
-    note !== null &&
-    typeof note === "object" &&
-    typeof note.heading === "string" &&
-    Array.isArray(note.bullets) &&
-    note.bullets.every((bullet) => typeof bullet === "string")
-  );
-}
-
 function extractNotes(geminiResponseBody) {
   const parts = geminiResponseBody.candidates?.[0]?.content?.parts ?? [];
   const text = parts.find((part) => typeof part.text === "string")?.text;
@@ -116,7 +124,11 @@ function extractNotes(geminiResponseBody) {
     return null;
   }
 
-  if (!Array.isArray(parsed?.notes) || !parsed.notes.every(isValidDetectedNote)) {
+  // Only a coarse shape check here -- each note's Billable Data fields (all
+  // optional) are validated in detail client-side by parseDetectedNotes()
+  // in src/billable-data.ts, which throws a specific NonRetryableProviderError
+  // on malformed output instead of this endpoint silently rejecting it.
+  if (!Array.isArray(parsed?.notes) || !parsed.notes.every((note) => note !== null && typeof note === "object")) {
     return null;
   }
   return parsed.notes;
