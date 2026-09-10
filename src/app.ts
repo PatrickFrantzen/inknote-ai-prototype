@@ -1,21 +1,25 @@
 import type { Stroke } from "./canvas-input";
 import type { Interpreter, InternalDocumentEntry } from "./interpretation";
 import { interpretNote } from "./interpretation";
-import type { RawNote } from "./note-store";
-import { loadLatestNote, saveNote } from "./note-store";
+import type { Document } from "./note-store";
+import { listDocuments, saveDocument } from "./note-store";
 
-export function saveDrawnNote(strokes: Stroke[]): RawNote {
-  const note: RawNote = {
+export function saveDrawnNote(strokes: Stroke[]): Document {
+  return saveDocument({
     id: crypto.randomUUID(),
     content: JSON.stringify(strokes),
     createdAt: new Date().toISOString(),
-  };
+  });
+}
 
-  saveNote(note);
-  return note;
+function loadLatestDocument(): Document | null {
+  const documents = listDocuments();
+  return documents.length === 0
+    ? null
+    : documents.reduce((latest, document) => (document.createdAt > latest.createdAt ? document : latest));
 }
 
 export async function interpretLatestNote(interpreter: Interpreter): Promise<InternalDocumentEntry | null> {
-  const note = loadLatestNote();
-  return note ? interpretNote(note, interpreter) : null;
+  const document = loadLatestDocument();
+  return document ? interpretNote(document, interpreter) : null;
 }

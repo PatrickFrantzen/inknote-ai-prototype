@@ -3,7 +3,15 @@ import type { Stroke } from "./canvas-input";
 import { attachCanvasInput } from "./canvas-input";
 import type { InternalDocumentEntry } from "./interpretation";
 import { mockInterpreter } from "./interpretation";
-import { loadLatestNote } from "./note-store";
+import { listDocuments } from "./note-store";
+import type { Document } from "./note-store";
+
+function loadLatestDocument(): Document | null {
+  const documents = listDocuments();
+  return documents.length === 0
+    ? null
+    : documents.reduce((latest, document) => (document.createdAt > latest.createdAt ? document : latest));
+}
 import { createGeminiInterpreter } from "./gemini-interpreter";
 
 const geminiInterpreter = createGeminiInterpreter();
@@ -52,7 +60,7 @@ drawingCanvas.addEventListener("pointermove", () => drawStrokes(drawingCanvas, i
 drawingCanvas.addEventListener("pointerdown", () => drawStrokes(drawingCanvas, input.getStrokes()));
 
 function renderSavedNotePreview() {
-  const note = loadLatestNote();
+  const note = loadLatestDocument();
   if (!note) {
     statusEl.textContent = "Noch keine gespeicherte Notiz.";
     return;

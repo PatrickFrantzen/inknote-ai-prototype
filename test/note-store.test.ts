@@ -1,34 +1,59 @@
 import { beforeEach, expect, test } from "vitest";
-import { clearSavedNote, loadLatestNote, saveNote } from "../src/note-store";
+import { deleteDocument, listDocuments, loadDocument, saveDocument } from "../src/note-store";
+
 
 beforeEach(() => {
   localStorage.clear();
 });
 
-test("saving a raw note makes it the latest loadable note", () => {
-  const note = {
-    id: "note-1",
+test("saving a document makes it loadable by id, defaulting to scribbled status", () => {
+  const document = {
+    id: "doc-1",
     content: "buy screws, call landlord",
     createdAt: "2026-01-01T10:00:00.000Z",
   };
 
-  saveNote(note);
+  saveDocument(document);
 
-  expect(loadLatestNote()).toEqual(note);
+  expect(loadDocument("doc-1")).toEqual({ ...document, status: "scribbled" });
 });
 
-test("loading with nothing saved yet returns null", () => {
-  expect(loadLatestNote()).toBeNull();
+test("multiple documents can be saved and loaded independently", () => {
+  const first = { id: "doc-1", content: "first note", createdAt: "2026-01-01T10:00:00.000Z" };
+  const second = { id: "doc-2", content: "second note", createdAt: "2026-01-02T10:00:00.000Z" };
+
+  saveDocument(first);
+  saveDocument(second);
+
+  expect(loadDocument("doc-1")).toEqual({ ...first, status: "scribbled" });
+  expect(loadDocument("doc-2")).toEqual({ ...second, status: "scribbled" });
 });
 
-test("clearing the saved note removes it, so loading returns null again", () => {
-  saveNote({
-    id: "note-2",
-    content: "order more filament",
-    createdAt: "2026-01-02T09:30:00.000Z",
-  });
+test("loading an unknown document id returns null", () => {
+  expect(loadDocument("does-not-exist")).toBeNull();
+});
 
-  clearSavedNote();
+test("listing documents returns every saved document", () => {
+  const first = { id: "doc-1", content: "first note", createdAt: "2026-01-01T10:00:00.000Z" };
+  const second = { id: "doc-2", content: "second note", createdAt: "2026-01-02T10:00:00.000Z" };
 
-  expect(loadLatestNote()).toBeNull();
+  saveDocument(first);
+  saveDocument(second);
+
+  expect(listDocuments()).toEqual([
+    { ...first, status: "scribbled" },
+    { ...second, status: "scribbled" },
+  ]);
+});
+
+test("deleting a document removes only that document", () => {
+  const first = { id: "doc-1", content: "first note", createdAt: "2026-01-01T10:00:00.000Z" };
+  const second = { id: "doc-2", content: "second note", createdAt: "2026-01-02T10:00:00.000Z" };
+  saveDocument(first);
+  saveDocument(second);
+
+  deleteDocument("doc-1");
+
+  expect(loadDocument("doc-1")).toBeNull();
+  expect(loadDocument("doc-2")).toEqual({ ...second, status: "scribbled" });
 });

@@ -1,13 +1,13 @@
 import { beforeEach, expect, test } from "vitest";
 import { interpretLatestNote, saveDrawnNote } from "../src/app";
-import { loadLatestNote } from "../src/note-store";
+import { loadDocument } from "../src/note-store";
 import type { Interpreter } from "../src/interpretation";
 
 beforeEach(() => {
   localStorage.clear();
 });
 
-test("saving drawn strokes persists them as the latest raw note", () => {
+test("saving drawn strokes persists them as a new document, loadable by its id", () => {
   const strokes = [
     [
       { x: 0, y: 0 },
@@ -15,9 +15,18 @@ test("saving drawn strokes persists them as the latest raw note", () => {
     ],
   ];
 
-  const note = saveDrawnNote(strokes);
+  const document = saveDrawnNote(strokes);
 
-  expect(loadLatestNote()).toEqual(note);
+  expect(loadDocument(document.id)).toEqual(document);
+});
+
+test("saving drawn strokes twice creates two independent documents", () => {
+  const first = saveDrawnNote([[{ x: 0, y: 0 }]]);
+  const second = saveDrawnNote([[{ x: 1, y: 1 }]]);
+
+  expect(first.id).not.toEqual(second.id);
+  expect(loadDocument(first.id)).toEqual(first);
+  expect(loadDocument(second.id)).toEqual(second);
 });
 
 test("interpreting with nothing saved yet returns null", async () => {
