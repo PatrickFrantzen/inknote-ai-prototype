@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { RawNote } from "../src/note-store";
-import type { Interpreter, InternalDocumentEntry } from "../src/interpretation";
+import type { ProviderAdapter, InternalDocumentEntry } from "../src/interpretation";
 import { interpretNote, mockInterpreter } from "../src/interpretation";
 
 test("the mock interpreter turns a raw note into a structured internal document entry", async () => {
@@ -14,7 +14,7 @@ test("the mock interpreter turns a raw note into a structured internal document 
 
   expect(entry.noteId).toBe("note-1");
   expect(entry.notes.length).toBeGreaterThan(0);
-  expect(entry.notes[0]?.bullets.join(" ")).toContain("order more filament");
+  expect(entry.notes[0]?.billableData.transcription).toContain("order more filament");
   expect(new Date(entry.createdAt).toString()).not.toBe("Invalid Date");
 });
 
@@ -26,10 +26,10 @@ test("interpretNote sends the raw note through the given interpreter", async () 
   };
   const stubEntry: InternalDocumentEntry = {
     noteId: "note-2",
-    notes: [{ heading: "Ventil", bullets: ["leaking valve needs repair"] }],
+    notes: [{ billableData: { activity: "leaking valve needs repair" } }],
     createdAt: "2026-01-02T09:05:00.000Z",
   };
-  const stubInterpreter: Interpreter = async () => stubEntry;
+  const stubInterpreter: ProviderAdapter = async () => stubEntry;
 
   expect(await interpretNote(note, stubInterpreter)).toEqual(stubEntry);
 });

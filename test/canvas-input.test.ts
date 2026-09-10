@@ -41,3 +41,59 @@ test("clearing removes the currently recorded strokes", () => {
 
   expect(input.getStrokes()).toEqual([]);
 });
+
+test("switching to the eraser tool removes a stroke the eraser path touches", () => {
+  const canvas = document.createElement("canvas");
+  const input = attachCanvasInput(canvas);
+
+  firePointerSequence(canvas, [
+    { x: 0, y: 0 },
+    { x: 10, y: 10 },
+  ]);
+  input.setTool("eraser");
+  firePointerSequence(canvas, [{ x: 5, y: 5 }]);
+
+  expect(input.getStrokes()).toEqual([]);
+});
+
+test("the eraser tool leaves strokes it doesn't touch untouched", () => {
+  const canvas = document.createElement("canvas");
+  const input = attachCanvasInput(canvas);
+
+  firePointerSequence(canvas, [
+    { x: 0, y: 0 },
+    { x: 10, y: 10 },
+  ]);
+  input.setTool("eraser");
+  firePointerSequence(canvas, [{ x: 500, y: 500 }]);
+
+  expect(input.getStrokes()).toEqual([
+    [
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+    ],
+  ]);
+});
+
+test("undo removes only the last stroke", () => {
+  const canvas = document.createElement("canvas");
+  const input = attachCanvasInput(canvas);
+
+  firePointerSequence(canvas, [
+    { x: 0, y: 0 },
+    { x: 1, y: 1 },
+  ]);
+  firePointerSequence(canvas, [
+    { x: 5, y: 5 },
+    { x: 6, y: 6 },
+  ]);
+
+  input.undo();
+
+  expect(input.getStrokes()).toEqual([
+    [
+      { x: 0, y: 0 },
+      { x: 1, y: 1 },
+    ],
+  ]);
+});
