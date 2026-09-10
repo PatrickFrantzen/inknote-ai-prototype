@@ -13,7 +13,7 @@ import { createGeminiInterpreter } from "./gemini-interpreter";
 import { renderNoteImage } from "./note-image";
 import { exportDocument, toInvoicePreparationText, toOfficeText, toVersionedJson } from "./export";
 import { documentSearchSnippet, filterDocuments } from "./document-list";
-import { loadProviderSettings, requireProviderSettings, saveProviderSettings } from "./provider-settings";
+import { loadProviderSettings, saveProviderSettings } from "./provider-settings";
 
 function loadLatestDocument(): Document | null {
   const documents = listDocuments();
@@ -37,7 +37,10 @@ const useRealAiCheckbox = document.querySelector<HTMLInputElement>("#use-real-ai
 
 function currentAdapter() {
   if (!useRealAiCheckbox.checked) return mockInterpreter;
-  return createGeminiInterpreter({ settings: requireProviderSettings() });
+  // Provider Settings are optional here: when unset (or partially unset), the proxy
+  // falls back to its own GEMINI_API_KEY/GEMINI_MODEL env vars (see server/index.mjs),
+  // so the app works out of the box while still letting a user bring their own key/model.
+  return createGeminiInterpreter({ settings: loadProviderSettings() ?? undefined });
 }
 
 const drawingCanvas = document.querySelector<HTMLCanvasElement>("#drawing-canvas")!;
