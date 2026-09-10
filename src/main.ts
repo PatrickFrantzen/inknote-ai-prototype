@@ -1,6 +1,7 @@
 import { interpretLatestNote, saveDrawnNote } from "./app";
 import type { CanvasTool, Stroke } from "./canvas-input";
 import { attachCanvasInput } from "./canvas-input";
+import type { BillableData } from "./billable-data";
 import type { InternalDocumentEntry } from "./interpretation";
 import { mockInterpreter } from "./interpretation";
 import { listDocuments } from "./note-store";
@@ -118,21 +119,45 @@ saveButton.addEventListener("click", () => {
   renderSavedNotePreview();
 });
 
+const BILLABLE_DATA_LABELS: Record<keyof Omit<BillableData, "customerDetails" | "uncertainty">, string> = {
+  activity: "Tätigkeit",
+  materials: "Material",
+  quantityUnit: "Menge/Einheit",
+  time: "Zeit",
+  estimate: "Schätzung",
+  officeReminder: "Büro-Hinweis",
+  transcription: "Transkription",
+};
+
+// Minimal rendering placeholder; the full Review UI (image compare, editing) lands in a later ticket.
 function renderEntry(entry: InternalDocumentEntry) {
   entryEl.innerHTML = "";
-  for (const note of entry.notes) {
+  entry.notes.forEach((note, index) => {
     const heading = document.createElement("h3");
-    heading.textContent = note.heading;
+    heading.textContent = `Notiz ${index + 1}`;
     entryEl.appendChild(heading);
 
     const list = document.createElement("ul");
-    for (const bullet of note.bullets) {
+    const { billableData } = note;
+    if (billableData.customerDetails?.name || billableData.customerDetails?.address) {
       const item = document.createElement("li");
-      item.textContent = bullet;
+      item.textContent = `Kunde: ${[billableData.customerDetails.name, billableData.customerDetails.address].filter(Boolean).join(", ")}`;
+      list.appendChild(item);
+    }
+    for (const [field, label] of Object.entries(BILLABLE_DATA_LABELS) as Array<[keyof typeof BILLABLE_DATA_LABELS, string]>) {
+      const value = billableData[field];
+      if (!value) continue;
+      const item = document.createElement("li");
+      item.textContent = `${label}: ${Array.isArray(value) ? value.join(", ") : value}`;
+      list.appendChild(item);
+    }
+    if (billableData.uncertainty?.length) {
+      const item = document.createElement("li");
+      item.textContent = `Unsicher bei: ${billableData.uncertainty.join(", ")}`;
       list.appendChild(item);
     }
     entryEl.appendChild(list);
-  }
+  });
 }
 
 interpretButton.addEventListener("click", async () => {

@@ -1,5 +1,6 @@
 import type { Stroke } from "./canvas-input";
-import type { DetectedNote, ProviderAdapter } from "./interpretation";
+import { parseDetectedNotes } from "./billable-data";
+import type { ProviderAdapter } from "./interpretation";
 import { renderNoteImage } from "./note-image";
 
 export interface GeminiInterpreterDeps {
@@ -29,11 +30,11 @@ export function createGeminiInterpreter(deps: GeminiInterpreterDeps = {}): Provi
       throw new Error(`Interpretation request failed with status ${response.status}`);
     }
 
-    const data = (await response.json()) as { notes: DetectedNote[] };
+    const data: unknown = await response.json();
 
     return {
       noteId: note.id,
-      notes: data.notes,
+      notes: parseDetectedNotes(data),
       createdAt: new Date().toISOString(),
     };
   };

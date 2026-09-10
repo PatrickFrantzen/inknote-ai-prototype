@@ -47,13 +47,13 @@ test("interpreting the latest saved note sends it through the given interpreter"
   const note = saveDrawnNote(strokes);
   const stubInterpreter: ProviderAdapter = async (n) => ({
     noteId: n.id,
-    notes: [{ heading: "Stub", bullets: ["stub bullet"] }],
+    notes: [{ billableData: { transcription: "stub note" } }],
     createdAt: "2026-01-01T00:00:00.000Z",
   });
 
   expect(await interpretLatestNote(stubInterpreter)).toEqual({
     noteId: note.id,
-    notes: [{ heading: "Stub", bullets: ["stub bullet"] }],
+    notes: [{ billableData: { transcription: "stub note" } }],
     createdAt: "2026-01-01T00:00:00.000Z",
   });
 });

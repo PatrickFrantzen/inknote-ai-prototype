@@ -1,9 +1,7 @@
+import type { DetectedNote } from "./billable-data";
 import type { RawNote } from "./note-store";
 
-export interface DetectedNote {
-  heading: string;
-  bullets: string[];
-}
+export type { DetectedNote } from "./billable-data";
 
 export interface InternalDocumentEntry {
   noteId: string;
@@ -16,7 +14,7 @@ export type ProviderAdapter = (note: RawNote) => Promise<InternalDocumentEntry>;
 
 export const mockInterpreter: ProviderAdapter = async (note) => ({
   noteId: note.id,
-  notes: [{ heading: "Mock-Notiz", bullets: [`Mock interpretation of: ${note.content}`] }],
+  notes: [{ billableData: { transcription: `Mock interpretation of: ${note.content}` } }],
   createdAt: new Date().toISOString(),
 });
 
