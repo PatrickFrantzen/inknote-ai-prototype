@@ -14,6 +14,7 @@ import { renderNoteImage } from "./note-image";
 import { exportDocument, toInvoicePreparationText, toOfficeText, toVersionedJson } from "./export";
 import { documentSearchSnippet, filterDocuments } from "./document-list";
 import { loadProviderSettings, saveProviderSettings } from "./provider-settings";
+import { CUSTOM_MODEL_OPTION, KNOWN_GEMINI_MODELS } from "./gemini-models";
 
 function loadLatestDocument(): Document | null {
   const documents = listDocuments();
@@ -61,7 +62,8 @@ const downloadJsonButton = document.querySelector<HTMLButtonElement>("#download-
 const statusEl = document.querySelector<HTMLParagraphElement>("#status")!;
 const entryEl = document.querySelector<HTMLDivElement>("#interpreted-entry")!;
 const providerApiKeyInput = document.querySelector<HTMLInputElement>("#provider-api-key")!;
-const providerModelInput = document.querySelector<HTMLInputElement>("#provider-model")!;
+const providerModelSelect = document.querySelector<HTMLSelectElement>("#provider-model")!;
+const providerModelCustomInput = document.querySelector<HTMLInputElement>("#provider-model-custom")!;
 const saveSettingsButton = document.querySelector<HTMLButtonElement>("#save-settings-button")!;
 const documentListEl = document.querySelector<HTMLUListElement>("#document-list")!;
 const exportWorkspaceButton = document.querySelector<HTMLButtonElement>("#export-workspace-button")!;
@@ -394,15 +396,40 @@ downloadJsonButton.addEventListener("click", () => {
   URL.revokeObjectURL(url);
 });
 
+// "Server-Standard" is an empty model value, so the server falls back to its own
+// GEMINI_MODEL env var (see currentAdapter() above and server/index.mjs).
+providerModelSelect.appendChild(new Option("Server-Standard verwenden", ""));
+for (const { id, label } of KNOWN_GEMINI_MODELS) {
+  providerModelSelect.appendChild(new Option(label, id));
+}
+providerModelSelect.appendChild(new Option("Anderes Modell (manuell eingeben)...", CUSTOM_MODEL_OPTION));
+
+function currentModelValue(): string {
+  return providerModelSelect.value === CUSTOM_MODEL_OPTION
+    ? providerModelCustomInput.value.trim()
+    : providerModelSelect.value;
+}
+
+providerModelSelect.addEventListener("change", () => {
+  providerModelCustomInput.style.display = providerModelSelect.value === CUSTOM_MODEL_OPTION ? "" : "none";
+});
+
 saveSettingsButton.addEventListener("click", () => {
-  saveProviderSettings({ apiKey: providerApiKeyInput.value.trim(), model: providerModelInput.value.trim() });
+  saveProviderSettings({ apiKey: providerApiKeyInput.value.trim(), model: currentModelValue() });
   statusEl.textContent = "Provider Settings gespeichert.";
 });
 
 const existingSettings = loadProviderSettings();
 if (existingSettings) {
   providerApiKeyInput.value = existingSettings.apiKey;
-  providerModelInput.value = existingSettings.model;
+  const isKnownModel = KNOWN_GEMINI_MODELS.some(({ id }) => id === existingSettings.model);
+  if (existingSettings.model && !isKnownModel) {
+    providerModelSelect.value = CUSTOM_MODEL_OPTION;
+    providerModelCustomInput.value = existingSettings.model;
+    providerModelCustomInput.style.display = "";
+  } else {
+    providerModelSelect.value = existingSettings.model;
+  }
 }
 
 exportWorkspaceButton.addEventListener("click", () => {
