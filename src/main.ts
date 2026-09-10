@@ -1,9 +1,10 @@
-import { interpretLatestNote, saveDrawnNote } from "./app";
+import { saveDrawnNote } from "./app";
 import type { CanvasTool, Stroke } from "./canvas-input";
 import { attachCanvasInput } from "./canvas-input";
 import type { BillableData } from "./billable-data";
 import type { InternalDocumentEntry } from "./interpretation";
 import { mockInterpreter } from "./interpretation";
+import { describeJobError, sendForInterpretation } from "./manual-send";
 import { listDocuments } from "./note-store";
 import type { Document } from "./note-store";
 import { createGeminiInterpreter } from "./gemini-interpreter";
@@ -161,18 +162,24 @@ function renderEntry(entry: InternalDocumentEntry) {
 }
 
 interpretButton.addEventListener("click", async () => {
+  const document = loadLatestDocument();
+  if (!document) {
+    entryEl.textContent = "Keine gespeicherte Notiz zum Interpretieren.";
+    return;
+  }
+
   interpretButton.disabled = true;
   entryEl.textContent = "Wird interpretiert …";
   try {
-    const interpreter = useRealAiCheckbox.checked ? geminiInterpreter : mockInterpreter;
-    const entry = await interpretLatestNote(interpreter);
-    if (entry) {
-      renderEntry(entry);
+    const adapter = useRealAiCheckbox.checked ? geminiInterpreter : mockInterpreter;
+    const job = sendForInterpretation(document.id, adapter);
+    const settled = await job.settled;
+    if (settled.status === "completed" && settled.result) {
+      renderEntry(settled.result);
     } else {
-      entryEl.textContent = "Keine gespeicherte Notiz zum Interpretieren.";
+      const { message } = describeJobError(settled);
+      entryEl.textContent = message;
     }
-  } catch (error) {
-    entryEl.textContent = `Interpretation fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`;
   } finally {
     interpretButton.disabled = false;
   }

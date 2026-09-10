@@ -1,3 +1,5 @@
+import type { InternalDocumentEntry } from "./interpretation";
+
 export type DocumentStatus = "scribbled" | "interpreted" | "approved" | "exported";
 
 export interface Document {
@@ -5,6 +7,7 @@ export interface Document {
   content: string;
   createdAt: string;
   status: DocumentStatus;
+  interpretation?: InternalDocumentEntry;
 }
 
 export type NewDocument = Omit<Document, "status"> & { status?: DocumentStatus };
@@ -19,10 +22,13 @@ function readWorkspace(): Document[] {
   return raw ? (JSON.parse(raw) as Document[]) : [];
 }
 
+function writeWorkspace(documents: Document[]): void {
+  localStorage.setItem(WORKSPACE_KEY, JSON.stringify(documents));
+}
+
 export function saveDocument(document: NewDocument): Document {
   const saved: Document = { ...document, status: document.status ?? "scribbled" };
-  const documents = readWorkspace();
-  localStorage.setItem(WORKSPACE_KEY, JSON.stringify([...documents, saved]));
+  writeWorkspace([...readWorkspace(), saved]);
   return saved;
 }
 
@@ -35,6 +41,16 @@ export function listDocuments(): Document[] {
 }
 
 export function deleteDocument(id: string): void {
-  const documents = readWorkspace().filter((document) => document.id !== id);
-  localStorage.setItem(WORKSPACE_KEY, JSON.stringify(documents));
+  writeWorkspace(readWorkspace().filter((document) => document.id !== id));
+}
+
+export function saveInterpretation(id: string, entry: InternalDocumentEntry): Document {
+  const documents = readWorkspace();
+  const index = documents.findIndex((document) => document.id === id);
+  if (index === -1) throw new Error(`Cannot save interpretation: document ${id} not found`);
+
+  const updated: Document = { ...documents[index]!, status: "interpreted", interpretation: entry };
+  documents[index] = updated;
+  writeWorkspace(documents);
+  return updated;
 }
