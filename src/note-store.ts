@@ -95,3 +95,62 @@ export function saveReviewedInterpretation(id: string, entry: InternalDocumentEn
   writeWorkspace(documents);
   return updated;
 }
+
+const WORKSPACE_EXPORT_SCHEMA_VERSION = 1;
+
+export interface WorkspaceExport {
+  schemaVersion: number;
+  exportedAt: string;
+  documents: Document[];
+}
+
+/** A single portable file containing the whole Local Workspace, so a user's Documents aren't trapped in one browser profile. */
+export function exportWorkspace(): WorkspaceExport {
+  return {
+    schemaVersion: WORKSPACE_EXPORT_SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    documents: readWorkspace(),
+  };
+}
+
+export interface ImportWorkspaceOptions {
+  /** "skip" (default): an imported Document whose id already exists locally is left alone, so import never silently destroys existing work. "overwrite": the imported Document replaces the local one. */
+  onConflict?: "skip" | "overwrite";
+}
+
+export interface ImportWorkspaceResult {
+  imported: number;
+  skipped: number;
+}
+
+function isDocumentLike(value: unknown): value is Document {
+  return typeof value === "object" && value !== null && typeof (value as Document).id === "string";
+}
+
+/** Imports a WorkspaceExport into the current Local Workspace. Id collisions are skipped by default -- existing Documents are never silently destroyed. */
+export function importWorkspace(data: WorkspaceExport, options: ImportWorkspaceOptions = {}): ImportWorkspaceResult {
+  if (typeof data !== "object" || data === null || !Array.isArray(data.documents) || !data.documents.every(isDocumentLike)) {
+    throw new Error("Cannot import workspace: the file is not a valid InkNote workspace export");
+  }
+
+  const onConflict = options.onConflict ?? "skip";
+  const documents = readWorkspace();
+  let imported = 0;
+  let skipped = 0;
+
+  for (const incoming of data.documents) {
+    const existingIndex = documents.findIndex((document) => document.id === incoming.id);
+    if (existingIndex === -1) {
+      documents.push(incoming);
+      imported++;
+    } else if (onConflict === "overwrite") {
+      documents[existingIndex] = incoming;
+      imported++;
+    } else {
+      skipped++;
+    }
+  }
+
+  writeWorkspace(documents);
+  return { imported, skipped };
+}

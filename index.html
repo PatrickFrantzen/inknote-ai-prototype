@@ -150,6 +150,13 @@
         <label><input type="checkbox" value="exported" checked /> exported</label>
       </div>
       <ul id="document-list" style="list-style: none; margin: 0; padding: 0; max-height: 200px; overflow-y: auto"></ul>
+      <div class="controls" style="margin-top: 0.75rem">
+        <button id="export-workspace-button" type="button">Workspace exportieren</button>
+        <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem">
+          Workspace importieren
+          <input type="file" id="import-workspace-input" accept="application/json" />
+        </label>
+      </div>
     </div>
 
     <canvas id="drawing-canvas"></canvas>

@@ -6,7 +6,8 @@ import type { InternalDocumentEntry } from "./interpretation";
 import { mockInterpreter } from "./interpretation";
 import { describeJobError, sendForInterpretation } from "./manual-send";
 import { effectiveInterpretation, reviewDocument } from "./review";
-import { approveDocument, listDocuments, loadDocument } from "./note-store";
+import { approveDocument, exportWorkspace, importWorkspace, listDocuments, loadDocument } from "./note-store";
+import type { WorkspaceExport } from "./note-store";
 import type { Document, DocumentStatus } from "./note-store";
 import { createGeminiInterpreter } from "./gemini-interpreter";
 import { renderNoteImage } from "./note-image";
@@ -60,6 +61,8 @@ const providerApiKeyInput = document.querySelector<HTMLInputElement>("#provider-
 const providerModelInput = document.querySelector<HTMLInputElement>("#provider-model")!;
 const saveSettingsButton = document.querySelector<HTMLButtonElement>("#save-settings-button")!;
 const documentListEl = document.querySelector<HTMLUListElement>("#document-list")!;
+const exportWorkspaceButton = document.querySelector<HTMLButtonElement>("#export-workspace-button")!;
+const importWorkspaceInput = document.querySelector<HTMLInputElement>("#import-workspace-input")!;
 const documentSearchInput = document.querySelector<HTMLInputElement>("#document-search")!;
 const statusFilterEl = document.querySelector<HTMLDivElement>("#status-filter")!;
 const statusFilterCheckboxes = Array.from(statusFilterEl.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
@@ -398,6 +401,32 @@ if (existingSettings) {
   providerApiKeyInput.value = existingSettings.apiKey;
   providerModelInput.value = existingSettings.model;
 }
+
+exportWorkspaceButton.addEventListener("click", () => {
+  const json = JSON.stringify(exportWorkspace(), null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `inknote-workspace-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
+importWorkspaceInput.addEventListener("change", async () => {
+  const file = importWorkspaceInput.files?.[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text()) as WorkspaceExport;
+    const { imported, skipped } = importWorkspace(data);
+    statusEl.textContent = `Workspace importiert: ${imported} übernommen, ${skipped} übersprungen (bereits vorhanden).`;
+    renderDocumentList();
+  } catch (error) {
+    statusEl.textContent = error instanceof Error ? error.message : String(error);
+  } finally {
+    importWorkspaceInput.value = "";
+  }
+});
 
 renderSavedNotePreview();
 renderDocumentList();
