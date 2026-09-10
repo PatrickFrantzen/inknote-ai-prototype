@@ -65,17 +65,24 @@ Untick it to fall back to the mocked interpreter without needing the server runn
    (`POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`)
    with an `inline_data` image part plus a German text prompt. The prompt
    frames the image as a note sheet that may contain several separate
-   handwritten notes and asks Gemini to detect each one individually. The
-   request also sets `generationConfig.responseMimeType` to
-   `application/json` with a `responseSchema` (`{ notes: [{ heading,
-   bullets }] }`), so Gemini returns structured JSON instead of free text.
-   The server parses and validates that JSON before relaying it back as
-   `{ notes }`.
-4. The client wraps that into an `InternalDocumentEntry` (see
-   `src/interpretation.ts`), whose `notes: DetectedNote[]` field holds one
-   entry per detected note -- the same shape the mock interpreter produces,
-   so the rest of the app (`src/app.ts`, `src/main.ts`) doesn't care which
-   interpreter is active.
+   handwritten notes and asks Gemini to extract each one's Billable Data
+   categories (`customerDetails`, `activity`, `materials`, `quantityUnit`,
+   `time`, `estimate`, `officeReminder`, `transcription`, `uncertainty`) --
+   see `src/billable-data.ts` for what each category means -- leaving out
+   whichever categories aren't present in the handwriting rather than
+   inventing them (the "Cautious Interpretation" from #7). The request also
+   sets `generationConfig.responseMimeType` to `application/json` with a
+   matching `responseSchema`, so Gemini returns structured JSON instead of
+   free text. The server only checks that the JSON parses and `notes` is an
+   array of objects before relaying it back as `{ notes }`; the detailed
+   per-field validation happens client-side (see step 4).
+4. `src/billable-data.ts`'s `parseDetectedNotes()` validates that JSON in
+   detail (each field's type, all fields optional) and throws a
+   `NonRetryableProviderError` on malformed output. The client wraps the
+   result into an `InternalDocumentEntry` (see `src/interpretation.ts`),
+   whose `notes: DetectedNote[]` field holds one entry per detected note --
+   the same shape the mock interpreter produces, so the rest of the app
+   (`src/app.ts`, `src/main.ts`) doesn't care which interpreter is active.
 
 ## Model
 
