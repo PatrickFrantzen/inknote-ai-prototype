@@ -1,10 +1,12 @@
 import { interpretLatestNote, saveDrawnNote } from "./app";
-import type { Stroke } from "./canvas-input";
+import type { CanvasTool, Stroke } from "./canvas-input";
 import { attachCanvasInput } from "./canvas-input";
 import type { InternalDocumentEntry } from "./interpretation";
 import { mockInterpreter } from "./interpretation";
 import { listDocuments } from "./note-store";
 import type { Document } from "./note-store";
+import { createGeminiInterpreter } from "./gemini-interpreter";
+import { renderNoteImage } from "./note-image";
 
 function loadLatestDocument(): Document | null {
   const documents = listDocuments();
@@ -12,13 +14,15 @@ function loadLatestDocument(): Document | null {
     ? null
     : documents.reduce((latest, document) => (document.createdAt > latest.createdAt ? document : latest));
 }
-import { createGeminiInterpreter } from "./gemini-interpreter";
 
 const geminiInterpreter = createGeminiInterpreter();
 const useRealAiCheckbox = document.querySelector<HTMLInputElement>("#use-real-ai")!;
 
 const drawingCanvas = document.querySelector<HTMLCanvasElement>("#drawing-canvas")!;
 const previewCanvas = document.querySelector<HTMLCanvasElement>("#raw-note-preview")!;
+const penButton = document.querySelector<HTMLButtonElement>("#pen-button")!;
+const eraserButton = document.querySelector<HTMLButtonElement>("#eraser-button")!;
+const undoButton = document.querySelector<HTMLButtonElement>("#undo-button")!;
 const clearButton = document.querySelector<HTMLButtonElement>("#clear-button")!;
 const saveButton = document.querySelector<HTMLButtonElement>("#save-button")!;
 const interpretButton = document.querySelector<HTMLButtonElement>("#interpret-button")!;
@@ -56,8 +60,37 @@ function drawStrokes(canvas: HTMLCanvasElement, strokes: Stroke[]) {
 }
 
 const input = attachCanvasInput(drawingCanvas);
-drawingCanvas.addEventListener("pointermove", () => drawStrokes(drawingCanvas, input.getStrokes()));
-drawingCanvas.addEventListener("pointerdown", () => drawStrokes(drawingCanvas, input.getStrokes()));
+
+function redrawDrawingCanvas() {
+  drawStrokes(drawingCanvas, input.getStrokes());
+}
+
+drawingCanvas.addEventListener("pointermove", redrawDrawingCanvas);
+drawingCanvas.addEventListener("pointerdown", redrawDrawingCanvas);
+
+function setActiveTool(tool: CanvasTool) {
+  input.setTool(tool);
+  penButton.setAttribute("aria-pressed", String(tool === "pen"));
+  eraserButton.setAttribute("aria-pressed", String(tool === "eraser"));
+}
+
+penButton.addEventListener("click", () => setActiveTool("pen"));
+eraserButton.addEventListener("click", () => setActiveTool("eraser"));
+undoButton.addEventListener("click", () => {
+  input.undo();
+  redrawDrawingCanvas();
+});
+
+// Renders the same Note Image (Stroke Data -> raster) that the Provider Adapter sends,
+// so the preview shown here is exactly what interpretation is based on.
+function renderNoteImageInto(canvas: HTMLCanvasElement, strokes: Stroke[]) {
+  const context = canvas.getContext("2d")!;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  if (strokes.length === 0) return;
+  const image = new Image();
+  image.onload = () => context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  image.src = renderNoteImage(strokes);
+}
 
 function renderSavedNotePreview() {
   const note = loadLatestDocument();
@@ -66,13 +99,13 @@ function renderSavedNotePreview() {
     return;
   }
   const strokes = JSON.parse(note.content) as Stroke[];
-  drawStrokes(previewCanvas, strokes);
+  renderNoteImageInto(previewCanvas, strokes);
   statusEl.textContent = `Gespeicherte Notiz vom ${new Date(note.createdAt).toLocaleString("de-DE")}.`;
 }
 
 clearButton.addEventListener("click", () => {
   input.clear();
-  drawStrokes(drawingCanvas, []);
+  redrawDrawingCanvas();
 });
 
 saveButton.addEventListener("click", () => {
