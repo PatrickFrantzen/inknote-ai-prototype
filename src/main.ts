@@ -6,7 +6,7 @@ import type { InternalDocumentEntry } from "./interpretation";
 import { mockInterpreter } from "./interpretation";
 import { describeJobError, sendForInterpretation } from "./manual-send";
 import { reviewDocument } from "./review";
-import { listDocuments } from "./note-store";
+import { approveDocument, listDocuments } from "./note-store";
 import type { Document } from "./note-store";
 import { createGeminiInterpreter } from "./gemini-interpreter";
 import { renderNoteImage } from "./note-image";
@@ -29,6 +29,7 @@ const undoButton = document.querySelector<HTMLButtonElement>("#undo-button")!;
 const clearButton = document.querySelector<HTMLButtonElement>("#clear-button")!;
 const saveButton = document.querySelector<HTMLButtonElement>("#save-button")!;
 const interpretButton = document.querySelector<HTMLButtonElement>("#interpret-button")!;
+const approveButton = document.querySelector<HTMLButtonElement>("#approve-button")!;
 const statusEl = document.querySelector<HTMLParagraphElement>("#status")!;
 const entryEl = document.querySelector<HTMLDivElement>("#interpreted-entry")!;
 
@@ -194,6 +195,10 @@ interpretButton.addEventListener("click", async () => {
     entryEl.textContent = "Keine gespeicherte Notiz zum Interpretieren.";
     return;
   }
+  if (document.reviewedInterpretation) {
+    const confirmed = window.confirm("Erneutes Interpretieren ersetzt deine bisherigen Änderungen. Fortfahren?");
+    if (!confirmed) return;
+  }
 
   interpretButton.disabled = true;
   entryEl.textContent = "Wird interpretiert …";
@@ -203,12 +208,29 @@ interpretButton.addEventListener("click", async () => {
     const settled = await job.settled;
     if (settled.status === "completed" && settled.result) {
       renderEntry(document.id, settled.result);
+      statusEl.textContent = "Interpretiert. Bitte prüfen und freigeben.";
     } else {
       const { message } = describeJobError(settled);
       entryEl.textContent = message;
     }
+  } catch (error) {
+    entryEl.textContent = error instanceof Error ? error.message : String(error);
   } finally {
     interpretButton.disabled = false;
+  }
+});
+
+approveButton.addEventListener("click", () => {
+  const document = loadLatestDocument();
+  if (!document) {
+    statusEl.textContent = "Keine gespeicherte Notiz zum Freigeben.";
+    return;
+  }
+  try {
+    approveDocument(document.id);
+    statusEl.textContent = "Freigegeben.";
+  } catch (error) {
+    statusEl.textContent = error instanceof Error ? error.message : String(error);
   }
 });
 

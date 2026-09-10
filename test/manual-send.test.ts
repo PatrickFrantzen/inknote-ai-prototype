@@ -67,6 +67,18 @@ test("retrying after a failure with a working adapter succeeds on the same docum
   expect(loadDocument(document.id)).toEqual({ ...document, status: "interpreted", interpretation: entry });
 });
 
+test("rerunning interpretation on an already-exported document is refused", () => {
+  const document = saveDocument({
+    id: "doc-7",
+    content: "buy screws",
+    createdAt: "2026-01-01T10:00:00.000Z",
+    status: "exported",
+  });
+  const adapter: ProviderAdapter = async () => ({ noteId: document.id, notes: [], createdAt: "2026-01-01T10:05:00.000Z" });
+
+  expect(() => sendForInterpretation(document.id, adapter)).toThrow(/already been exported/);
+});
+
 test("describes a retryable failure as something the user can retry", async () => {
   const document = saveDocument({ id: "doc-5", content: "buy screws", createdAt: "2026-01-01T10:00:00.000Z" });
   const flakyAdapter: ProviderAdapter = async () => {

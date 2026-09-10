@@ -7,6 +7,9 @@ import { loadDocument, saveInterpretation } from "./note-store";
 export function sendForInterpretation(documentId: string, adapter: ProviderAdapter): InterpretationJob {
   const document = loadDocument(documentId);
   if (!document) throw new Error(`Cannot send for interpretation: document ${documentId} not found`);
+  if (document.status === "exported") {
+    throw new Error(`Cannot rerun interpretation: document ${documentId} has already been exported`);
+  }
 
   const job = startInterpretationJob(adapter, document);
 

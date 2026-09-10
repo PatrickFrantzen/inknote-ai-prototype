@@ -1,5 +1,6 @@
 import { beforeEach, expect, test } from "vitest";
 import {
+  approveDocument,
   deleteDocument,
   listDocuments,
   loadDocument,
@@ -102,4 +103,51 @@ test("saving a reviewed interpretation leaves the original interpretation untouc
   expect(updated.reviewedInterpretation).toEqual(reviewed);
   expect(loadDocument("doc-1")?.interpretation).toEqual(original);
   expect(loadDocument("doc-1")?.reviewedInterpretation).toEqual(reviewed);
+});
+
+test("saving a fresh interpretation replaces the previous one and clears any review", () => {
+  const document = { id: "doc-1", content: "buy screws", createdAt: "2026-01-01T10:00:00.000Z" };
+  saveDocument(document);
+  saveInterpretation("doc-1", {
+    noteId: "doc-1",
+    notes: [{ billableData: { transcription: "buy screws" } }],
+    createdAt: "2026-01-01T10:05:00.000Z",
+  });
+  saveReviewedInterpretation("doc-1", {
+    noteId: "doc-1",
+    notes: [{ billableData: { transcription: "buy screws", activity: "reviewed" } }],
+    createdAt: "2026-01-01T10:05:00.000Z",
+  });
+
+  const rerun: InternalDocumentEntry = {
+    noteId: "doc-1",
+    notes: [{ billableData: { transcription: "buy screws, order filament" } }],
+    createdAt: "2026-01-01T10:10:00.000Z",
+  };
+  const updated = saveInterpretation("doc-1", rerun);
+
+  expect(updated.interpretation).toEqual(rerun);
+  expect(updated.reviewedInterpretation).toBeUndefined();
+  expect(loadDocument("doc-1")?.reviewedInterpretation).toBeUndefined();
+});
+
+test("approving an interpreted document moves it to approved", () => {
+  const document = { id: "doc-1", content: "buy screws", createdAt: "2026-01-01T10:00:00.000Z" };
+  saveDocument(document);
+  saveInterpretation("doc-1", {
+    noteId: "doc-1",
+    notes: [{ billableData: { transcription: "buy screws" } }],
+    createdAt: "2026-01-01T10:05:00.000Z",
+  });
+
+  const approved = approveDocument("doc-1");
+
+  expect(approved.status).toBe("approved");
+  expect(loadDocument("doc-1")?.status).toBe("approved");
+});
+
+test("approving a document that has not been interpreted yet is refused", () => {
+  saveDocument({ id: "doc-1", content: "buy screws", createdAt: "2026-01-01T10:00:00.000Z" });
+
+  expect(() => approveDocument("doc-1")).toThrow(/not been interpreted/);
 });
