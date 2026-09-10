@@ -2,12 +2,52 @@
 // Gemini API key stays server-side (calling a Google API with a secret key
 // directly from browser code would expose it to anyone opening devtools).
 // Not part of the prototype's PWA scope otherwise -- see docs/prototype-scope.md.
+//
+// Also doubles as the static file server for the built frontend (dist/) so a
+// single Node process can be deployed as one unit (see
+// docs/agents/gemini-integration.md, "Deploying both together").
 import { createServer } from "node:http";
+import { createReadStream, existsSync, statSync } from "node:fs";
+import { extname, join, normalize, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const PORT = process.env.PORT ?? 8787;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.6-flash";
 const MAX_BODY_BYTES = 15 * 1024 * 1024; // room for a base64 PNG well under Gemini's 20MB inline request limit
+
+const DIST_DIR = resolve(fileURLToPath(new URL("..", import.meta.url)), "dist");
+const CONTENT_TYPES = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".ico": "image/x-icon",
+  ".webmanifest": "application/manifest+json",
+};
+
+function serveStatic(req, res) {
+  const urlPath = decodeURIComponent(req.url.split("?")[0]);
+  const safePath = normalize(join(DIST_DIR, urlPath)).startsWith(DIST_DIR)
+    ? normalize(join(DIST_DIR, urlPath))
+    : DIST_DIR;
+
+  let filePath = safePath;
+  if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
+    filePath = join(DIST_DIR, "index.html"); // SPA fallback for client-side routes
+  }
+  if (!existsSync(filePath)) {
+    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.end("Not found");
+    return;
+  }
+
+  const contentType = CONTENT_TYPES[extname(filePath)] ?? "application/octet-stream";
+  res.writeHead(200, { "Content-Type": contentType });
+  createReadStream(filePath).pipe(res);
+}
 
 const INTERPRETATION_PROMPT =
   "Du bekommst das Bild eines Notizblatts mit einer oder mehreren handschriftlichen " +
@@ -166,6 +206,11 @@ const server = createServer((req, res) => {
     });
     return;
   }
+  if (req.method === "GET" && existsSync(DIST_DIR)) {
+    serveStatic(req, res);
+    return;
+  }
+
   res.writeHead(404, { "Content-Type": "application/json" });
   res.end(JSON.stringify({ error: "Not found" }));
 });
