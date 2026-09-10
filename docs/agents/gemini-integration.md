@@ -88,6 +88,33 @@ model if you want to try a newer one -- check current free-tier availability
 at <https://ai.google.dev/gemini-api/docs/models> first, since that list
 moves fast.
 
+## Deploying both together (e.g. Hostinger Node.js hosting)
+
+`server/index.mjs` also serves the built frontend (`dist/`) as static files
+when that directory exists, with an SPA fallback to `index.html`. That means
+one Node process can serve the whole app -- useful for hosts like Hostinger's
+"Node.js App" plans, which run a single Node process per app rather than a
+static host plus a separate backend.
+
+Steps:
+
+1. `npm run build` locally to produce `dist/`.
+2. Upload the repo (or at least `server/`, `dist/`, `package.json`,
+   `package-lock.json`) to the Hostinger Node.js app.
+3. In the Hostinger panel, set the app's **environment variables**:
+   `GEMINI_API_KEY` (required) and optionally `GEMINI_MODEL`. Do not commit
+   `.env` -- use the panel instead, same idea as the Claude Code cloud
+   environment setup above.
+4. Set the **startup file** to `server/index.mjs` (or run `npm run start`,
+   which does the same thing without `--env-file`). Hostinger sets `PORT`
+   itself; the server already reads `process.env.PORT`.
+5. Hostinger terminates TLS for you, so the deployed URL is HTTPS -- required
+   for testing PWA features (install prompt, service worker) on a phone or
+   tablet.
+
+This is still the same "no persistence, no auth" prototype server described
+above, just reachable from a real device instead of `localhost`.
+
 ## Known limitations (prototype, not production)
 
 - No retry/backoff on transient Gemini errors or rate-limit (429) responses.
