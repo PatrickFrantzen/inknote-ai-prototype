@@ -51,7 +51,6 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 1rem;
-        max-width: 800px;
       }
       .panel {
         border: 1px solid #d6d3d1;
@@ -124,12 +123,74 @@
         color: #78716c;
         margin-top: 0.25rem;
       }
+
+      /* Settings area: its own area at every breakpoint, never hidden. */
+      .settings-area {
+        margin-bottom: 1rem;
+      }
+
+      /* New-note action: emphasized on mobile/tablet (default), de-emphasized once
+         the editor is already visible alongside the list on desktop. */
+      .new-note-link {
+        display: block;
+        text-align: center;
+        text-decoration: none;
+        font-weight: 600;
+        color: #1c1917;
+        background: #fff;
+        border: 1px solid #44403c;
+        border-radius: 8px;
+        padding: 0.75rem 1.25rem;
+        margin-bottom: 0.75rem;
+      }
+      .new-note-link:active {
+        background: #e7e5e4;
+      }
+
+      /* Mobile/tablet (default): document list first and prominent, editor stacked below. */
+      .app-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .area-documents {
+        order: -1;
+      }
+
+      /* Desktop: document list as a sidebar next to the current-document editor. */
+      @media (min-width: 900px) {
+        .app-layout {
+          flex-direction: row;
+          align-items: flex-start;
+        }
+        .area-documents {
+          order: 0;
+          flex: 0 0 320px;
+          position: sticky;
+          top: 1.5rem;
+        }
+        .area-editor {
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+        .new-note-link {
+          font-weight: 400;
+          padding: 0.5rem 0.75rem;
+        }
+      }
+
+      /* Let the three-way export/review grid wrap on medium widths instead of squeezing. */
+      @media (max-width: 700px) {
+        .panels {
+          grid-template-columns: 1fr;
+        }
+      }
     </style>
   </head>
   <body>
     <h1>InkNote AI Prototype</h1>
 
-    <details class="panel" style="max-width: 800px; margin-bottom: 1rem">
+    <details class="panel settings-area">
       <summary style="cursor: pointer; font-size: 0.9rem; color: #57534e">Einstellungen: Provider</summary>
       <div class="controls" style="flex-wrap: wrap; margin-top: 0.75rem">
         <input type="password" id="provider-api-key" placeholder="Gemini API-Key" style="padding: 0.5rem; border-radius: 6px; border: 1px solid #d6d3d1" />
@@ -138,62 +199,67 @@
       </div>
     </details>
 
-    <div class="panel" style="max-width: 800px; margin-bottom: 1rem">
-      <h2>Gespeicherte Notizen</h2>
-      <div class="controls" style="margin: 0 0 0.5rem">
-        <input type="search" id="document-search" placeholder="Suchen …" style="flex: 1; padding: 0.5rem; border-radius: 6px; border: 1px solid #d6d3d1" />
+    <div class="app-layout">
+      <div class="area-documents panel">
+        <h2>Gespeicherte Notizen</h2>
+        <a class="new-note-link" href="#drawing-canvas">+ Neue Notiz</a>
+        <div class="controls" style="margin: 0 0 0.5rem">
+          <input type="search" id="document-search" placeholder="Suchen …" style="flex: 1; padding: 0.5rem; border-radius: 6px; border: 1px solid #d6d3d1" />
+        </div>
+        <div class="controls" id="status-filter" style="margin: 0 0 0.5rem; font-size: 0.85rem; flex-wrap: wrap">
+          <label><input type="checkbox" value="scribbled" checked /> scribbled</label>
+          <label><input type="checkbox" value="interpreted" checked /> interpreted</label>
+          <label><input type="checkbox" value="approved" checked /> approved</label>
+          <label><input type="checkbox" value="exported" checked /> exported</label>
+        </div>
+        <ul id="document-list" style="list-style: none; margin: 0; padding: 0; max-height: 200px; overflow-y: auto"></ul>
+        <div class="controls" style="margin-top: 0.75rem; flex-wrap: wrap">
+          <button id="export-workspace-button" type="button">Workspace exportieren</button>
+          <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem">
+            Workspace importieren
+            <input type="file" id="import-workspace-input" accept="application/json" />
+          </label>
+        </div>
       </div>
-      <div class="controls" id="status-filter" style="margin: 0 0 0.5rem; font-size: 0.85rem; flex-wrap: wrap">
-        <label><input type="checkbox" value="scribbled" checked /> scribbled</label>
-        <label><input type="checkbox" value="interpreted" checked /> interpreted</label>
-        <label><input type="checkbox" value="approved" checked /> approved</label>
-        <label><input type="checkbox" value="exported" checked /> exported</label>
-      </div>
-      <ul id="document-list" style="list-style: none; margin: 0; padding: 0; max-height: 200px; overflow-y: auto"></ul>
-      <div class="controls" style="margin-top: 0.75rem">
-        <button id="export-workspace-button" type="button">Workspace exportieren</button>
-        <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem">
-          Workspace importieren
-          <input type="file" id="import-workspace-input" accept="application/json" />
-        </label>
-      </div>
-    </div>
 
-    <canvas id="drawing-canvas"></canvas>
+      <div class="area-editor">
+        <canvas id="drawing-canvas"></canvas>
 
-    <div class="controls">
-      <button id="pen-button" type="button" aria-pressed="true">Stift</button>
-      <button id="eraser-button" type="button" aria-pressed="false">Radierer</button>
-      <button id="undo-button" type="button">Rückgängig</button>
-      <button id="clear-button" type="button">Löschen</button>
-      <button id="save-button" type="button">Speichern</button>
-      <button id="interpret-button" type="button">Interpretieren</button>
-      <button id="approve-button" type="button">Freigeben</button>
-      <button id="export-office-button" type="button">Export: Bürotext</button>
-      <button id="export-invoice-button" type="button">Export: Rechnungsvorbereitung</button>
-      <button id="export-json-button" type="button">Export: JSON</button>
-      <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem">
-        <input type="checkbox" id="use-real-ai" checked />
-        Echte Gemini-Interpretation (Server muss laufen: <code>npm run server</code>)
-      </label>
-    </div>
-    <p class="status" id="status"></p>
+        <div class="controls" style="flex-wrap: wrap">
+          <button id="pen-button" type="button" aria-pressed="true">Stift</button>
+          <button id="eraser-button" type="button" aria-pressed="false">Radierer</button>
+          <button id="undo-button" type="button">Rückgängig</button>
+          <button id="clear-button" type="button">Löschen</button>
+          <button id="save-button" type="button">Speichern</button>
+          <button id="interpret-button" type="button">Interpretieren</button>
+          <button id="approve-button" type="button">Freigeben</button>
+          <button id="export-office-button" type="button">Export: Bürotext</button>
+          <button id="export-invoice-button" type="button">Export: Rechnungsvorbereitung</button>
+          <button id="export-json-button" type="button">Export: JSON</button>
+          <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem">
+            <input type="checkbox" id="use-real-ai" checked />
+            Echte Gemini-Interpretation (Server muss laufen: <code>npm run server</code>)
+          </label>
+        </div>
+        <p class="status" id="status"></p>
 
-    <div class="panels">
-      <div class="panel">
-        <h2>Rohe Notiz (gespeichert)</h2>
-        <canvas id="raw-note-preview"></canvas>
-      </div>
-      <div class="panel">
-        <h2>Interner Dokumenteintrag (interpretiert)</h2>
-        <div id="interpreted-entry">Noch keine Interpretation.</div>
-      </div>
-      <div class="panel">
-        <h2>Export</h2>
-        <textarea id="export-output" readonly rows="8" style="width: 100%; font: inherit"></textarea>
-        <div class="controls" style="margin-top: 0.5rem">
-          <button id="copy-export-button" type="button">In Zwischenablage kopieren</button>
-          <button id="download-json-button" type="button" hidden>JSON herunterladen</button>
+        <div class="panels">
+          <div class="panel">
+            <h2>Rohe Notiz (gespeichert)</h2>
+            <canvas id="raw-note-preview"></canvas>
+          </div>
+          <div class="panel">
+            <h2>Interner Dokumenteintrag (interpretiert)</h2>
+            <div id="interpreted-entry">Noch keine Interpretation.</div>
+          </div>
+          <div class="panel">
+            <h2>Export</h2>
+            <textarea id="export-output" readonly rows="8" style="width: 100%; font: inherit"></textarea>
+            <div class="controls" style="margin-top: 0.5rem">
+              <button id="copy-export-button" type="button">In Zwischenablage kopieren</button>
+              <button id="download-json-button" type="button" hidden>JSON herunterladen</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
