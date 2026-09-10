@@ -83,18 +83,23 @@ function extractNotes(geminiResponseBody) {
 }
 
 async function handleInterpret(req, res) {
-  if (!GEMINI_API_KEY) {
-    res.writeHead(500, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "GEMINI_API_KEY is not configured on the server" }));
-    return;
-  }
-
   let body;
   try {
     body = await readJsonBody(req);
   } catch (error) {
     res.writeHead(400, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Invalid request body" }));
+    return;
+  }
+
+  // A client-supplied Provider Settings key/model (see src/provider-settings.ts) takes
+  // precedence over the server's own env-var default, so users can bring their own key.
+  const apiKey = typeof body.apiKey === "string" && body.apiKey ? body.apiKey : GEMINI_API_KEY;
+  const model = typeof body.model === "string" && body.model ? body.model : GEMINI_MODEL;
+
+  if (!apiKey) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "No Gemini API key configured (neither client Provider Settings nor server GEMINI_API_KEY)" }));
     return;
   }
 
@@ -108,11 +113,11 @@ async function handleInterpret(req, res) {
   let geminiResponse;
   try {
     geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
         method: "POST",
         headers: {
-          "x-goog-api-key": GEMINI_API_KEY,
+          "x-goog-api-key": apiKey,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

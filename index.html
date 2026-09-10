@@ -129,6 +129,15 @@
   <body>
     <h1>InkNote AI Prototype</h1>
 
+    <details class="panel" style="max-width: 800px; margin-bottom: 1rem">
+      <summary style="cursor: pointer; font-size: 0.9rem; color: #57534e">Einstellungen: Provider</summary>
+      <div class="controls" style="flex-wrap: wrap; margin-top: 0.75rem">
+        <input type="password" id="provider-api-key" placeholder="Gemini API-Key" style="padding: 0.5rem; border-radius: 6px; border: 1px solid #d6d3d1" />
+        <input type="text" id="provider-model" placeholder="Modell (z.B. gemini-3.6-flash)" style="padding: 0.5rem; border-radius: 6px; border: 1px solid #d6d3d1" />
+        <button id="save-settings-button" type="button">Speichern</button>
+      </div>
+    </details>
+
     <div class="panel" style="max-width: 800px; margin-bottom: 1rem">
       <h2>Gespeicherte Notizen</h2>
       <div class="controls" style="margin: 0 0 0.5rem">

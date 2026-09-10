@@ -2,6 +2,7 @@ import type { Stroke } from "./canvas-input";
 import { parseDetectedNotes } from "./billable-data";
 import type { ProviderAdapter } from "./interpretation";
 import { renderNoteImage } from "./note-image";
+import type { ProviderSettings } from "./provider-settings";
 
 export interface GeminiInterpreterDeps {
   /** Path of the local proxy endpoint that actually calls the Gemini API with the secret key. */
@@ -9,6 +10,8 @@ export interface GeminiInterpreterDeps {
   fetchImpl?: typeof fetch;
   /** Turns the drawn strokes into a Note Image the vision model can read. Defaults to the shared Note Image renderer. */
   rasterizeStrokes?: (strokes: Stroke[]) => string;
+  /** The user's configured API key/model, sent along so the proxy can use them instead of its own server-side default. */
+  settings?: ProviderSettings;
 }
 
 export function createGeminiInterpreter(deps: GeminiInterpreterDeps = {}): ProviderAdapter {
@@ -19,11 +22,12 @@ export function createGeminiInterpreter(deps: GeminiInterpreterDeps = {}): Provi
   return async (note) => {
     const strokes = JSON.parse(note.content) as Stroke[];
     const imageDataUrl = rasterizeStrokes(strokes);
+    const settingsFields = deps.settings ? { apiKey: deps.settings.apiKey, model: deps.settings.model } : {};
 
     const response = await fetchImpl(proxyUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ noteId: note.id, imageDataUrl }),
+      body: JSON.stringify({ noteId: note.id, imageDataUrl, ...settingsFields }),
     });
 
     if (!response.ok) {

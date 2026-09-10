@@ -12,6 +12,7 @@ import { createGeminiInterpreter } from "./gemini-interpreter";
 import { renderNoteImage } from "./note-image";
 import { exportDocument, toInvoicePreparationText, toOfficeText, toVersionedJson } from "./export";
 import { documentSearchSnippet, filterDocuments } from "./document-list";
+import { loadProviderSettings, requireProviderSettings, saveProviderSettings } from "./provider-settings";
 
 function loadLatestDocument(): Document | null {
   const documents = listDocuments();
@@ -31,8 +32,12 @@ function getSelectedDocument(): Document | null {
   return loadLatestDocument();
 }
 
-const geminiInterpreter = createGeminiInterpreter();
 const useRealAiCheckbox = document.querySelector<HTMLInputElement>("#use-real-ai")!;
+
+function currentAdapter() {
+  if (!useRealAiCheckbox.checked) return mockInterpreter;
+  return createGeminiInterpreter({ settings: requireProviderSettings() });
+}
 
 const drawingCanvas = document.querySelector<HTMLCanvasElement>("#drawing-canvas")!;
 const previewCanvas = document.querySelector<HTMLCanvasElement>("#raw-note-preview")!;
@@ -51,6 +56,9 @@ const copyExportButton = document.querySelector<HTMLButtonElement>("#copy-export
 const downloadJsonButton = document.querySelector<HTMLButtonElement>("#download-json-button")!;
 const statusEl = document.querySelector<HTMLParagraphElement>("#status")!;
 const entryEl = document.querySelector<HTMLDivElement>("#interpreted-entry")!;
+const providerApiKeyInput = document.querySelector<HTMLInputElement>("#provider-api-key")!;
+const providerModelInput = document.querySelector<HTMLInputElement>("#provider-model")!;
+const saveSettingsButton = document.querySelector<HTMLButtonElement>("#save-settings-button")!;
 const documentListEl = document.querySelector<HTMLUListElement>("#document-list")!;
 const documentSearchInput = document.querySelector<HTMLInputElement>("#document-search")!;
 const statusFilterEl = document.querySelector<HTMLDivElement>("#status-filter")!;
@@ -279,7 +287,7 @@ interpretButton.addEventListener("click", async () => {
   interpretButton.disabled = true;
   entryEl.textContent = "Wird interpretiert …";
   try {
-    const adapter = useRealAiCheckbox.checked ? geminiInterpreter : mockInterpreter;
+    const adapter = currentAdapter();
     const job = sendForInterpretation(document.id, adapter);
     const settled = await job.settled;
     if (settled.status === "completed" && settled.result) {
@@ -379,6 +387,17 @@ downloadJsonButton.addEventListener("click", () => {
   link.click();
   URL.revokeObjectURL(url);
 });
+
+saveSettingsButton.addEventListener("click", () => {
+  saveProviderSettings({ apiKey: providerApiKeyInput.value.trim(), model: providerModelInput.value.trim() });
+  statusEl.textContent = "Provider Settings gespeichert.";
+});
+
+const existingSettings = loadProviderSettings();
+if (existingSettings) {
+  providerApiKeyInput.value = existingSettings.apiKey;
+  providerModelInput.value = existingSettings.model;
+}
 
 renderSavedNotePreview();
 renderDocumentList();
