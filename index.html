@@ -92,6 +92,33 @@
         border-radius: 6px;
         border: 1px solid #d6d3d1;
       }
+      #document-list li {
+        padding: 0.4rem 0.5rem;
+        border-bottom: 1px solid #e7e5e4;
+        cursor: pointer;
+        font-size: 0.85rem;
+        display: flex;
+        gap: 0.5rem;
+        align-items: baseline;
+      }
+      #document-list li:hover {
+        background: #f5f5f4;
+      }
+      #document-list li[aria-selected="true"] {
+        background: #e7e5e4;
+        font-weight: 600;
+      }
+      #document-list .doc-status {
+        font-size: 0.75rem;
+        color: #78716c;
+        text-transform: uppercase;
+      }
+      #document-list .doc-snippet {
+        color: #57534e;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       .status {
         font-size: 0.85rem;
         color: #78716c;
@@ -101,6 +128,20 @@
   </head>
   <body>
     <h1>InkNote AI Prototype</h1>
+
+    <div class="panel" style="max-width: 800px; margin-bottom: 1rem">
+      <h2>Gespeicherte Notizen</h2>
+      <div class="controls" style="margin: 0 0 0.5rem">
+        <input type="search" id="document-search" placeholder="Suchen …" style="flex: 1; padding: 0.5rem; border-radius: 6px; border: 1px solid #d6d3d1" />
+      </div>
+      <div class="controls" id="status-filter" style="margin: 0 0 0.5rem; font-size: 0.85rem; flex-wrap: wrap">
+        <label><input type="checkbox" value="scribbled" checked /> scribbled</label>
+        <label><input type="checkbox" value="interpreted" checked /> interpreted</label>
+        <label><input type="checkbox" value="approved" checked /> approved</label>
+        <label><input type="checkbox" value="exported" checked /> exported</label>
+      </div>
+      <ul id="document-list" style="list-style: none; margin: 0; padding: 0; max-height: 200px; overflow-y: auto"></ul>
+    </div>
 
     <canvas id="drawing-canvas"></canvas>
 

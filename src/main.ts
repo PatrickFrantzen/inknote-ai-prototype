@@ -6,17 +6,29 @@ import type { InternalDocumentEntry } from "./interpretation";
 import { mockInterpreter } from "./interpretation";
 import { describeJobError, sendForInterpretation } from "./manual-send";
 import { effectiveInterpretation, reviewDocument } from "./review";
-import { approveDocument, listDocuments } from "./note-store";
-import type { Document } from "./note-store";
+import { approveDocument, listDocuments, loadDocument } from "./note-store";
+import type { Document, DocumentStatus } from "./note-store";
 import { createGeminiInterpreter } from "./gemini-interpreter";
 import { renderNoteImage } from "./note-image";
 import { exportDocument, toInvoicePreparationText, toOfficeText, toVersionedJson } from "./export";
+import { documentSearchSnippet, filterDocuments } from "./document-list";
 
 function loadLatestDocument(): Document | null {
   const documents = listDocuments();
   return documents.length === 0
     ? null
     : documents.reduce((latest, document) => (document.createdAt > latest.createdAt ? document : latest));
+}
+
+let selectedDocumentId: string | null = null;
+
+/** The Document the rest of the app (canvas preview, review, approve, export) operates on: the one explicitly picked from the list, falling back to the most-recently-created Document when nothing has been picked yet. */
+function getSelectedDocument(): Document | null {
+  if (selectedDocumentId) {
+    const selected = loadDocument(selectedDocumentId);
+    if (selected) return selected;
+  }
+  return loadLatestDocument();
 }
 
 const geminiInterpreter = createGeminiInterpreter();
@@ -39,6 +51,10 @@ const copyExportButton = document.querySelector<HTMLButtonElement>("#copy-export
 const downloadJsonButton = document.querySelector<HTMLButtonElement>("#download-json-button")!;
 const statusEl = document.querySelector<HTMLParagraphElement>("#status")!;
 const entryEl = document.querySelector<HTMLDivElement>("#interpreted-entry")!;
+const documentListEl = document.querySelector<HTMLUListElement>("#document-list")!;
+const documentSearchInput = document.querySelector<HTMLInputElement>("#document-search")!;
+const statusFilterEl = document.querySelector<HTMLDivElement>("#status-filter")!;
+const statusFilterCheckboxes = Array.from(statusFilterEl.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
 
 function matchCanvasSizeToDisplay(canvas: HTMLCanvasElement) {
   canvas.width = canvas.clientWidth;
@@ -104,14 +120,62 @@ function renderNoteImageInto(canvas: HTMLCanvasElement, strokes: Stroke[]) {
 }
 
 function renderSavedNotePreview() {
-  const note = loadLatestDocument();
+  const note = getSelectedDocument();
   if (!note) {
     statusEl.textContent = "Noch keine gespeicherte Notiz.";
+    entryEl.textContent = "Noch keine Interpretation.";
     return;
   }
   const strokes = JSON.parse(note.content) as Stroke[];
   renderNoteImageInto(previewCanvas, strokes);
-  statusEl.textContent = `Gespeicherte Notiz vom ${new Date(note.createdAt).toLocaleString("de-DE")}.`;
+  statusEl.textContent = `Gespeicherte Notiz vom ${new Date(note.createdAt).toLocaleString("de-DE")} (${note.status}).`;
+  const effective = effectiveInterpretation(note);
+  if (effective) {
+    renderEntry(note.id, effective);
+  } else {
+    entryEl.textContent = "Noch keine Interpretation.";
+  }
+}
+
+function currentStatusFilter(): DocumentStatus[] {
+  return statusFilterCheckboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value as DocumentStatus);
+}
+
+function renderDocumentList() {
+  const filtered = filterDocuments(listDocuments(), {
+    query: documentSearchInput.value,
+    statuses: currentStatusFilter(),
+  });
+  const selected = getSelectedDocument();
+
+  documentListEl.innerHTML = "";
+  for (const doc of filtered) {
+    const item = document.createElement("li");
+    item.setAttribute("aria-selected", String(doc.id === selected?.id));
+    const timestamp = document.createElement("span");
+    timestamp.textContent = new Date(doc.createdAt).toLocaleString("de-DE");
+    const status = document.createElement("span");
+    status.className = "doc-status";
+    status.textContent = doc.status;
+    const snippet = document.createElement("span");
+    snippet.className = "doc-snippet";
+    const text = documentSearchSnippet(doc);
+    snippet.textContent = text ? text.slice(0, 40) : "Keine Interpretation";
+    item.append(timestamp, status, snippet);
+    item.addEventListener("click", () => selectDocument(doc.id));
+    documentListEl.appendChild(item);
+  }
+}
+
+function selectDocument(id: string) {
+  selectedDocumentId = id;
+  renderSavedNotePreview();
+  renderDocumentList();
+}
+
+documentSearchInput.addEventListener("input", renderDocumentList);
+for (const checkbox of statusFilterCheckboxes) {
+  checkbox.addEventListener("change", renderDocumentList);
 }
 
 clearButton.addEventListener("click", () => {
@@ -125,8 +189,10 @@ saveButton.addEventListener("click", () => {
     statusEl.textContent = "Erst etwas zeichnen, dann speichern.";
     return;
   }
-  saveDrawnNote(strokes);
+  const saved = saveDrawnNote(strokes);
+  selectedDocumentId = saved.id;
   renderSavedNotePreview();
+  renderDocumentList();
 });
 
 const BILLABLE_DATA_LABELS: Record<keyof Omit<BillableData, "customerDetails" | "uncertainty">, string> = {
@@ -163,7 +229,10 @@ function renderEntry(documentId: string, entry: InternalDocumentEntry) {
       const input = document.createElement("input");
       input.type = "text";
       input.value = value;
-      input.addEventListener("change", () => onChange(input.value));
+      input.addEventListener("change", () => {
+        onChange(input.value);
+        renderDocumentList();
+      });
       row.appendChild(labelEl);
       row.appendChild(input);
       fields.appendChild(row);
@@ -197,7 +266,7 @@ function renderEntry(documentId: string, entry: InternalDocumentEntry) {
 }
 
 interpretButton.addEventListener("click", async () => {
-  const document = loadLatestDocument();
+  const document = getSelectedDocument();
   if (!document) {
     entryEl.textContent = "Keine gespeicherte Notiz zum Interpretieren.";
     return;
@@ -224,11 +293,12 @@ interpretButton.addEventListener("click", async () => {
     entryEl.textContent = error instanceof Error ? error.message : String(error);
   } finally {
     interpretButton.disabled = false;
+    renderDocumentList();
   }
 });
 
 approveButton.addEventListener("click", () => {
-  const document = loadLatestDocument();
+  const document = getSelectedDocument();
   if (!document) {
     statusEl.textContent = "Keine gespeicherte Notiz zum Freigeben.";
     return;
@@ -239,12 +309,13 @@ approveButton.addEventListener("click", () => {
   } catch (error) {
     statusEl.textContent = error instanceof Error ? error.message : String(error);
   }
+  renderDocumentList();
 });
 
 let currentJsonExport: string | null = null;
 
 function withExportableDocument(action: (document: Document) => void) {
-  const document = loadLatestDocument();
+  const document = getSelectedDocument();
   if (!document) {
     statusEl.textContent = "Keine gespeicherte Notiz zum Exportieren.";
     return;
@@ -258,6 +329,7 @@ function withExportableDocument(action: (document: Document) => void) {
   } catch (error) {
     statusEl.textContent = error instanceof Error ? error.message : String(error);
   }
+  renderDocumentList();
 }
 
 exportOfficeButton.addEventListener("click", () => {
@@ -309,3 +381,4 @@ downloadJsonButton.addEventListener("click", () => {
 });
 
 renderSavedNotePreview();
+renderDocumentList();
