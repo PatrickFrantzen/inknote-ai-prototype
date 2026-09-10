@@ -1,7 +1,7 @@
 import { beforeEach, expect, test } from "vitest";
 import { interpretLatestNote, saveDrawnNote } from "../src/app";
 import { loadDocument } from "../src/note-store";
-import type { Interpreter } from "../src/interpretation";
+import type { ProviderAdapter } from "../src/interpretation";
 
 beforeEach(() => {
   localStorage.clear();
@@ -30,7 +30,7 @@ test("saving drawn strokes twice creates two independent documents", () => {
 });
 
 test("interpreting with nothing saved yet returns null", async () => {
-  const stubInterpreter: Interpreter = () => {
+  const stubInterpreter: ProviderAdapter = () => {
     throw new Error("should not be called");
   };
 
@@ -45,7 +45,7 @@ test("interpreting the latest saved note sends it through the given interpreter"
     ],
   ];
   const note = saveDrawnNote(strokes);
-  const stubInterpreter: Interpreter = async (n) => ({
+  const stubInterpreter: ProviderAdapter = async (n) => ({
     noteId: n.id,
     notes: [{ heading: "Stub", bullets: ["stub bullet"] }],
     createdAt: "2026-01-01T00:00:00.000Z",

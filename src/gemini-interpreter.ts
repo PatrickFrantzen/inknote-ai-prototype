@@ -1,5 +1,5 @@
 import type { Stroke } from "./canvas-input";
-import type { DetectedNote, Interpreter } from "./interpretation";
+import type { DetectedNote, ProviderAdapter } from "./interpretation";
 import { renderNoteImage } from "./note-image";
 
 export interface GeminiInterpreterDeps {
@@ -10,7 +10,7 @@ export interface GeminiInterpreterDeps {
   rasterizeStrokes?: (strokes: Stroke[]) => string;
 }
 
-export function createGeminiInterpreter(deps: GeminiInterpreterDeps = {}): Interpreter {
+export function createGeminiInterpreter(deps: GeminiInterpreterDeps = {}): ProviderAdapter {
   const proxyUrl = deps.proxyUrl ?? "/api/interpret";
   const fetchImpl = deps.fetchImpl ?? fetch;
   const rasterizeStrokes = deps.rasterizeStrokes ?? ((strokes: Stroke[]) => renderNoteImage(strokes));

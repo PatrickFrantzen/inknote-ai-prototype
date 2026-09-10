@@ -1,5 +1,5 @@
 import type { Stroke } from "./canvas-input";
-import type { Interpreter, InternalDocumentEntry } from "./interpretation";
+import type { ProviderAdapter, InternalDocumentEntry } from "./interpretation";
 import { interpretNote } from "./interpretation";
 import type { Document } from "./note-store";
 import { listDocuments, saveDocument } from "./note-store";
@@ -19,7 +19,7 @@ function loadLatestDocument(): Document | null {
     : documents.reduce((latest, document) => (document.createdAt > latest.createdAt ? document : latest));
 }
 
-export async function interpretLatestNote(interpreter: Interpreter): Promise<InternalDocumentEntry | null> {
+export async function interpretLatestNote(interpreter: ProviderAdapter): Promise<InternalDocumentEntry | null> {
   const document = loadLatestDocument();
   return document ? interpretNote(document, interpreter) : null;
 }
