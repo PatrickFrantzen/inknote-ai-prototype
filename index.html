@@ -112,6 +112,9 @@
       <button id="save-button" type="button">Speichern</button>
       <button id="interpret-button" type="button">Interpretieren</button>
       <button id="approve-button" type="button">Freigeben</button>
+      <button id="export-office-button" type="button">Export: Bürotext</button>
+      <button id="export-invoice-button" type="button">Export: Rechnungsvorbereitung</button>
+      <button id="export-json-button" type="button">Export: JSON</button>
       <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem">
         <input type="checkbox" id="use-real-ai" checked />
         Echte Gemini-Interpretation (Server muss laufen: <code>npm run server</code>)
@@ -127,6 +130,14 @@
       <div class="panel">
         <h2>Interner Dokumenteintrag (interpretiert)</h2>
         <div id="interpreted-entry">Noch keine Interpretation.</div>
+      </div>
+      <div class="panel">
+        <h2>Export</h2>
+        <textarea id="export-output" readonly rows="8" style="width: 100%; font: inherit"></textarea>
+        <div class="controls" style="margin-top: 0.5rem">
+          <button id="copy-export-button" type="button">In Zwischenablage kopieren</button>
+          <button id="download-json-button" type="button" hidden>JSON herunterladen</button>
+        </div>
       </div>
     </div>
 

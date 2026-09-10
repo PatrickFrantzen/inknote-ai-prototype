@@ -1,5 +1,5 @@
 import { beforeEach, expect, test } from "vitest";
-import { applyBillableDataEdit, reviewDocument } from "../src/review";
+import { applyBillableDataEdit, effectiveInterpretation, reviewDocument } from "../src/review";
 import { loadDocument, saveDocument, saveInterpretation } from "../src/note-store";
 import type { InternalDocumentEntry } from "../src/interpretation";
 
@@ -66,4 +66,37 @@ test("reviewing a document twice composes both edits", () => {
     activity: "Ventil komplett getauscht",
     estimate: "95 EUR",
   });
+});
+
+test("effective interpretation prefers the reviewed interpretation when present", () => {
+  saveDocument({ id: "doc-5", content: "buy screws", createdAt: "2026-01-01T10:00:00.000Z" });
+  saveInterpretation("doc-5", {
+    noteId: "doc-5",
+    notes: [{ billableData: { activity: "original" } }],
+    createdAt: "2026-01-01T10:05:00.000Z",
+  });
+  reviewDocument("doc-5", 0, { activity: "edited" });
+
+  const document = loadDocument("doc-5")!;
+
+  expect(effectiveInterpretation(document)?.notes[0]?.billableData.activity).toBe("edited");
+});
+
+test("effective interpretation falls back to the original interpretation when nothing was reviewed", () => {
+  saveDocument({ id: "doc-6", content: "buy screws", createdAt: "2026-01-01T10:00:00.000Z" });
+  saveInterpretation("doc-6", {
+    noteId: "doc-6",
+    notes: [{ billableData: { activity: "original" } }],
+    createdAt: "2026-01-01T10:05:00.000Z",
+  });
+
+  const document = loadDocument("doc-6")!;
+
+  expect(effectiveInterpretation(document)?.notes[0]?.billableData.activity).toBe("original");
+});
+
+test("effective interpretation is null when the document has no interpretation yet", () => {
+  saveDocument({ id: "doc-7", content: "buy screws", createdAt: "2026-01-01T10:00:00.000Z" });
+
+  expect(effectiveInterpretation(loadDocument("doc-7")!)).toBeNull();
 });

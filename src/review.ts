@@ -17,6 +17,11 @@ export function applyBillableDataEdit(
   };
 }
 
+/** The interpretation that should drive review/export: the user's edits if any exist, otherwise the original machine interpretation. */
+export function effectiveInterpretation(document: Document): InternalDocumentEntry | null {
+  return document.reviewedInterpretation ?? document.interpretation ?? null;
+}
+
 /** Edits one Detected Note's Billable Data and persists the result as the Document's Reviewed Interpretation, leaving the original machine interpretation untouched. Composes with any prior review. */
 export function reviewDocument(documentId: string, noteIndex: number, patch: Partial<BillableData>): Document {
   const document = loadDocument(documentId);

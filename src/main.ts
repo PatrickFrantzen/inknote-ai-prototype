@@ -5,11 +5,12 @@ import type { BillableData } from "./billable-data";
 import type { InternalDocumentEntry } from "./interpretation";
 import { mockInterpreter } from "./interpretation";
 import { describeJobError, sendForInterpretation } from "./manual-send";
-import { reviewDocument } from "./review";
+import { effectiveInterpretation, reviewDocument } from "./review";
 import { approveDocument, listDocuments } from "./note-store";
 import type { Document } from "./note-store";
 import { createGeminiInterpreter } from "./gemini-interpreter";
 import { renderNoteImage } from "./note-image";
+import { exportDocument, toInvoicePreparationText, toOfficeText, toVersionedJson } from "./export";
 
 function loadLatestDocument(): Document | null {
   const documents = listDocuments();
@@ -30,6 +31,12 @@ const clearButton = document.querySelector<HTMLButtonElement>("#clear-button")!;
 const saveButton = document.querySelector<HTMLButtonElement>("#save-button")!;
 const interpretButton = document.querySelector<HTMLButtonElement>("#interpret-button")!;
 const approveButton = document.querySelector<HTMLButtonElement>("#approve-button")!;
+const exportOfficeButton = document.querySelector<HTMLButtonElement>("#export-office-button")!;
+const exportInvoiceButton = document.querySelector<HTMLButtonElement>("#export-invoice-button")!;
+const exportJsonButton = document.querySelector<HTMLButtonElement>("#export-json-button")!;
+const exportOutputEl = document.querySelector<HTMLTextAreaElement>("#export-output")!;
+const copyExportButton = document.querySelector<HTMLButtonElement>("#copy-export-button")!;
+const downloadJsonButton = document.querySelector<HTMLButtonElement>("#download-json-button")!;
 const statusEl = document.querySelector<HTMLParagraphElement>("#status")!;
 const entryEl = document.querySelector<HTMLDivElement>("#interpreted-entry")!;
 
@@ -232,6 +239,73 @@ approveButton.addEventListener("click", () => {
   } catch (error) {
     statusEl.textContent = error instanceof Error ? error.message : String(error);
   }
+});
+
+let currentJsonExport: string | null = null;
+
+function withExportableDocument(action: (document: Document) => void) {
+  const document = loadLatestDocument();
+  if (!document) {
+    statusEl.textContent = "Keine gespeicherte Notiz zum Exportieren.";
+    return;
+  }
+  if (!effectiveInterpretation(document)) {
+    statusEl.textContent = "Erst interpretieren, bevor exportiert werden kann.";
+    return;
+  }
+  try {
+    action(document);
+  } catch (error) {
+    statusEl.textContent = error instanceof Error ? error.message : String(error);
+  }
+}
+
+exportOfficeButton.addEventListener("click", () => {
+  withExportableDocument((document) => {
+    const exported = exportDocument(document.id);
+    exportOutputEl.value = toOfficeText(effectiveInterpretation(exported)!);
+    downloadJsonButton.hidden = true;
+    currentJsonExport = null;
+    statusEl.textContent = "Exportiert (Bürotext).";
+  });
+});
+
+exportInvoiceButton.addEventListener("click", () => {
+  withExportableDocument((document) => {
+    const exported = exportDocument(document.id);
+    exportOutputEl.value = toInvoicePreparationText(effectiveInterpretation(exported)!);
+    downloadJsonButton.hidden = true;
+    currentJsonExport = null;
+    statusEl.textContent = "Exportiert (Rechnungsvorbereitung).";
+  });
+});
+
+exportJsonButton.addEventListener("click", () => {
+  withExportableDocument((document) => {
+    const exported = exportDocument(document.id);
+    const json = JSON.stringify(toVersionedJson(effectiveInterpretation(exported)!), null, 2);
+    exportOutputEl.value = json;
+    currentJsonExport = json;
+    downloadJsonButton.hidden = false;
+    statusEl.textContent = "Exportiert (JSON).";
+  });
+});
+
+copyExportButton.addEventListener("click", async () => {
+  if (!exportOutputEl.value) return;
+  await navigator.clipboard.writeText(exportOutputEl.value);
+  statusEl.textContent = "In Zwischenablage kopiert.";
+});
+
+downloadJsonButton.addEventListener("click", () => {
+  if (!currentJsonExport) return;
+  const blob = new Blob([currentJsonExport], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "inknote-export.json";
+  link.click();
+  URL.revokeObjectURL(url);
 });
 
 renderSavedNotePreview();

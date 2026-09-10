@@ -74,6 +74,17 @@ export function approveDocument(id: string): Document {
   return updated;
 }
 
+export function markExported(id: string): Document {
+  const documents = readWorkspace();
+  const index = documents.findIndex((document) => document.id === id);
+  if (index === -1) throw new Error(`Cannot mark exported: document ${id} not found`);
+
+  const updated: Document = { ...documents[index]!, status: "exported" };
+  documents[index] = updated;
+  writeWorkspace(documents);
+  return updated;
+}
+
 export function saveReviewedInterpretation(id: string, entry: InternalDocumentEntry): Document {
   const documents = readWorkspace();
   const index = documents.findIndex((document) => document.id === id);

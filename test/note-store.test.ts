@@ -4,6 +4,7 @@ import {
   deleteDocument,
   listDocuments,
   loadDocument,
+  markExported,
   saveDocument,
   saveInterpretation,
   saveReviewedInterpretation,
@@ -150,4 +151,13 @@ test("approving a document that has not been interpreted yet is refused", () => 
   saveDocument({ id: "doc-1", content: "buy screws", createdAt: "2026-01-01T10:00:00.000Z" });
 
   expect(() => approveDocument("doc-1")).toThrow(/not been interpreted/);
+});
+
+test("marking a document exported moves its status to exported", () => {
+  saveDocument({ id: "doc-1", content: "buy screws", createdAt: "2026-01-01T10:00:00.000Z", status: "approved" });
+
+  const exported = markExported("doc-1");
+
+  expect(exported.status).toBe("exported");
+  expect(loadDocument("doc-1")?.status).toBe("exported");
 });
