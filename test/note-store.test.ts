@@ -1,5 +1,12 @@
 import { beforeEach, expect, test } from "vitest";
-import { deleteDocument, listDocuments, loadDocument, saveDocument, saveInterpretation } from "../src/note-store";
+import {
+  deleteDocument,
+  listDocuments,
+  loadDocument,
+  saveDocument,
+  saveInterpretation,
+  saveReviewedInterpretation,
+} from "../src/note-store";
 import type { InternalDocumentEntry } from "../src/interpretation";
 
 
@@ -72,4 +79,27 @@ test("saving an interpretation attaches it to the document and moves status to i
 
   expect(updated).toEqual({ ...document, status: "interpreted", interpretation: entry });
   expect(loadDocument("doc-1")).toEqual({ ...document, status: "interpreted", interpretation: entry });
+});
+
+test("saving a reviewed interpretation leaves the original interpretation untouched", () => {
+  const document = { id: "doc-1", content: "buy screws", createdAt: "2026-01-01T10:00:00.000Z" };
+  saveDocument(document);
+  const original: InternalDocumentEntry = {
+    noteId: "doc-1",
+    notes: [{ billableData: { transcription: "buy screws" } }],
+    createdAt: "2026-01-01T10:05:00.000Z",
+  };
+  saveInterpretation("doc-1", original);
+  const reviewed: InternalDocumentEntry = {
+    noteId: "doc-1",
+    notes: [{ billableData: { transcription: "buy screws", activity: "Schrauben besorgt" } }],
+    createdAt: "2026-01-01T10:05:00.000Z",
+  };
+
+  const updated = saveReviewedInterpretation("doc-1", reviewed);
+
+  expect(updated.interpretation).toEqual(original);
+  expect(updated.reviewedInterpretation).toEqual(reviewed);
+  expect(loadDocument("doc-1")?.interpretation).toEqual(original);
+  expect(loadDocument("doc-1")?.reviewedInterpretation).toEqual(reviewed);
 });

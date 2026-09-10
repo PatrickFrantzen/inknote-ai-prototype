@@ -5,6 +5,7 @@ import type { BillableData } from "./billable-data";
 import type { InternalDocumentEntry } from "./interpretation";
 import { mockInterpreter } from "./interpretation";
 import { describeJobError, sendForInterpretation } from "./manual-send";
+import { reviewDocument } from "./review";
 import { listDocuments } from "./note-store";
 import type { Document } from "./note-store";
 import { createGeminiInterpreter } from "./gemini-interpreter";
@@ -130,34 +131,60 @@ const BILLABLE_DATA_LABELS: Record<keyof Omit<BillableData, "customerDetails" | 
   transcription: "Transkription",
 };
 
-// Minimal rendering placeholder; the full Review UI (image compare, editing) lands in a later ticket.
-function renderEntry(entry: InternalDocumentEntry) {
+// The Review UI: Note Image is already shown in the preview panel (same Document); this
+// renders each Detected Note's present Billable Data as editable fields next to it. Empty
+// categories are skipped here but stay present-as-absent in the underlying structured data.
+// Uncertain fields are marked "(unsicher)". Edits are saved as the Reviewed Interpretation.
+function renderEntry(documentId: string, entry: InternalDocumentEntry) {
   entryEl.innerHTML = "";
-  entry.notes.forEach((note, index) => {
+  entry.notes.forEach((note, noteIndex) => {
     const heading = document.createElement("h3");
-    heading.textContent = `Notiz ${index + 1}`;
+    heading.textContent = `Notiz ${noteIndex + 1}`;
     entryEl.appendChild(heading);
 
-    const list = document.createElement("ul");
+    const fields = document.createElement("div");
+    fields.className = "billable-data-fields";
     const { billableData } = note;
-    if (billableData.customerDetails?.name || billableData.customerDetails?.address) {
-      const item = document.createElement("li");
-      item.textContent = `Kunde: ${[billableData.customerDetails.name, billableData.customerDetails.address].filter(Boolean).join(", ")}`;
-      list.appendChild(item);
+    const uncertain = new Set(billableData.uncertainty ?? []);
+
+    function addRow(labelText: string, value: string, onChange: (value: string) => void) {
+      const row = document.createElement("label");
+      row.className = "billable-data-field";
+      const labelEl = document.createElement("span");
+      labelEl.textContent = labelText;
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = value;
+      input.addEventListener("change", () => onChange(input.value));
+      row.appendChild(labelEl);
+      row.appendChild(input);
+      fields.appendChild(row);
     }
+
+    if (billableData.customerDetails?.name || billableData.customerDetails?.address) {
+      const label = uncertain.has("customerDetails") ? "Kunde (unsicher)" : "Kunde";
+      addRow(label, [billableData.customerDetails.name, billableData.customerDetails.address].filter(Boolean).join(", "), (value) => {
+        const [name, address] = value.split(",").map((part) => part.trim());
+        reviewDocument(documentId, noteIndex, { customerDetails: { name: name || undefined, address: address || undefined } });
+      });
+    }
+
     for (const [field, label] of Object.entries(BILLABLE_DATA_LABELS) as Array<[keyof typeof BILLABLE_DATA_LABELS, string]>) {
       const value = billableData[field];
       if (!value) continue;
-      const item = document.createElement("li");
-      item.textContent = `${label}: ${Array.isArray(value) ? value.join(", ") : value}`;
-      list.appendChild(item);
+      const labelText = uncertain.has(field) ? `${label} (unsicher)` : label;
+      if (Array.isArray(value)) {
+        addRow(labelText, value.join(", "), (next) => {
+          reviewDocument(documentId, noteIndex, { [field]: next.split(",").map((part) => part.trim()).filter(Boolean) });
+        });
+      } else {
+        addRow(labelText, value, (next) => {
+          reviewDocument(documentId, noteIndex, { [field]: next });
+        });
+      }
     }
-    if (billableData.uncertainty?.length) {
-      const item = document.createElement("li");
-      item.textContent = `Unsicher bei: ${billableData.uncertainty.join(", ")}`;
-      list.appendChild(item);
-    }
-    entryEl.appendChild(list);
+
+    entryEl.appendChild(fields);
   });
 }
 
@@ -175,7 +202,7 @@ interpretButton.addEventListener("click", async () => {
     const job = sendForInterpretation(document.id, adapter);
     const settled = await job.settled;
     if (settled.status === "completed" && settled.result) {
-      renderEntry(settled.result);
+      renderEntry(document.id, settled.result);
     } else {
       const { message } = describeJobError(settled);
       entryEl.textContent = message;
