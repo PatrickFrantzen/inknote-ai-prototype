@@ -6,7 +6,7 @@ import type { InternalDocumentEntry } from "./interpretation";
 import { mockInterpreter } from "./interpretation";
 import { describeJobError, sendForInterpretation } from "./manual-send";
 import { effectiveInterpretation, reviewDocument } from "./review";
-import { approveDocument, exportWorkspace, importWorkspace, listDocuments, loadDocument } from "./note-store";
+import { approveDocument, deleteDocument, exportWorkspace, importWorkspace, listDocuments, loadDocument } from "./note-store";
 import type { WorkspaceExport } from "./note-store";
 import type { Document, DocumentStatus } from "./note-store";
 import { createGeminiInterpreter } from "./gemini-interpreter";
@@ -44,15 +44,51 @@ function currentAdapter() {
   return createGeminiInterpreter({ settings: loadProviderSettings() ?? undefined });
 }
 
+// --- Bottom nav + sheets -----------------------------------------------
+// Only one of "Notiz" (always mounted) / "Notizen" / "Einstellungen" is visible
+// at a time on narrow screens; on wide screens the sheets render inline instead
+// of as full-screen overlays (see the min-width media query in index.html).
+
+const navButtons = {
+  note: document.querySelector<HTMLButtonElement>("#nav-tab-note")!,
+  notes: document.querySelector<HTMLButtonElement>("#nav-tab-notes")!,
+  settings: document.querySelector<HTMLButtonElement>("#nav-tab-settings")!,
+};
+const noteView = document.querySelector<HTMLElement>("#view-note")!;
+const sheets = {
+  notes: document.querySelector<HTMLElement>("#sheet-notes")!,
+  settings: document.querySelector<HTMLElement>("#sheet-settings")!,
+};
+
+type Tab = "note" | "notes" | "settings";
+
+function showTab(tab: Tab) {
+  noteView.hidden = tab !== "note";
+  sheets.notes.dataset.open = String(tab === "notes");
+  sheets.settings.dataset.open = String(tab === "settings");
+  navButtons.note.setAttribute("aria-pressed", String(tab === "note"));
+  navButtons.notes.setAttribute("aria-pressed", String(tab === "notes"));
+  navButtons.settings.setAttribute("aria-pressed", String(tab === "settings"));
+}
+
+navButtons.note.addEventListener("click", () => showTab("note"));
+navButtons.notes.addEventListener("click", () => showTab("notes"));
+navButtons.settings.addEventListener("click", () => showTab("settings"));
+for (const closeButton of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-close-sheet]"))) {
+  closeButton.addEventListener("click", () => showTab("note"));
+}
+
 const drawingCanvas = document.querySelector<HTMLCanvasElement>("#drawing-canvas")!;
 const previewCanvas = document.querySelector<HTMLCanvasElement>("#raw-note-preview")!;
 const penButton = document.querySelector<HTMLButtonElement>("#pen-button")!;
 const eraserButton = document.querySelector<HTMLButtonElement>("#eraser-button")!;
 const undoButton = document.querySelector<HTMLButtonElement>("#undo-button")!;
 const clearButton = document.querySelector<HTMLButtonElement>("#clear-button")!;
-const saveButton = document.querySelector<HTMLButtonElement>("#save-button")!;
 const interpretButton = document.querySelector<HTMLButtonElement>("#interpret-button")!;
+const interpretLoading = document.querySelector<HTMLDivElement>("#interpret-loading")!;
 const approveButton = document.querySelector<HTMLButtonElement>("#approve-button")!;
+const resultSection = document.querySelector<HTMLDivElement>("#result-section")!;
+const exportSection = document.querySelector<HTMLDivElement>("#export-section")!;
 const exportOfficeButton = document.querySelector<HTMLButtonElement>("#export-office-button")!;
 const exportInvoiceButton = document.querySelector<HTMLButtonElement>("#export-invoice-button")!;
 const exportJsonButton = document.querySelector<HTMLButtonElement>("#export-json-button")!;
@@ -140,6 +176,8 @@ function renderSavedNotePreview() {
   if (!note) {
     statusEl.textContent = "Noch keine gespeicherte Notiz.";
     entryEl.textContent = "Noch keine Interpretation.";
+    resultSection.hidden = true;
+    exportSection.hidden = true;
     return;
   }
   const strokes = JSON.parse(note.content) as Stroke[];
@@ -148,8 +186,12 @@ function renderSavedNotePreview() {
   const effective = effectiveInterpretation(note);
   if (effective) {
     renderEntry(note.id, effective);
+    resultSection.hidden = false;
+    exportSection.hidden = false;
   } else {
     entryEl.textContent = "Noch keine Interpretation.";
+    resultSection.hidden = true;
+    exportSection.hidden = true;
   }
 }
 
@@ -177,7 +219,22 @@ function renderDocumentList() {
     snippet.className = "doc-snippet";
     const text = documentSearchSnippet(doc);
     snippet.textContent = text ? text.slice(0, 40) : "Keine Interpretation";
-    item.append(timestamp, status, snippet);
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "doc-delete";
+    deleteButton.textContent = "Löschen";
+    deleteButton.setAttribute("aria-label", "Notiz löschen");
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (!window.confirm("Diese Notiz wirklich löschen?")) return;
+      deleteDocument(doc.id);
+      if (selectedDocumentId === doc.id) {
+        selectedDocumentId = null;
+      }
+      renderSavedNotePreview();
+      renderDocumentList();
+    });
+    item.append(timestamp, status, snippet, deleteButton);
     item.addEventListener("click", () => selectDocument(doc.id));
     documentListEl.appendChild(item);
   }
@@ -187,6 +244,7 @@ function selectDocument(id: string) {
   selectedDocumentId = id;
   renderSavedNotePreview();
   renderDocumentList();
+  showTab("note");
 }
 
 documentSearchInput.addEventListener("input", renderDocumentList);
@@ -199,32 +257,21 @@ clearButton.addEventListener("click", () => {
   redrawDrawingCanvas();
 });
 
-saveButton.addEventListener("click", () => {
-  const strokes = input.getStrokes();
-  if (strokes.length === 0) {
-    statusEl.textContent = "Erst etwas zeichnen, dann speichern.";
-    return;
-  }
-  const saved = saveDrawnNote(strokes);
-  selectedDocumentId = saved.id;
-  renderSavedNotePreview();
-  renderDocumentList();
-});
-
-const BILLABLE_DATA_LABELS: Record<keyof Omit<BillableData, "customerDetails" | "uncertainty">, string> = {
+const BILLABLE_DATA_LABELS: Record<keyof Omit<BillableData, "customerDetails" | "uncertainty" | "transcription">, string> = {
   activity: "Tätigkeit",
   materials: "Material",
   quantityUnit: "Menge/Einheit",
   time: "Zeit",
   estimate: "Schätzung",
   officeReminder: "Büro-Hinweis",
-  transcription: "Transkription",
 };
 
 // The Review UI: Note Image is already shown in the preview panel (same Document); this
 // renders each Detected Note's present Billable Data as editable fields next to it. Empty
 // categories are skipped here but stay present-as-absent in the underlying structured data.
 // Uncertain fields are marked "(unsicher)". Edits are saved as the Reviewed Interpretation.
+// The raw Transkription is deliberately not shown here -- the user first wants to see that
+// their note was understood, not a technical readout -- it lives in the "Analyse" toggle below.
 function renderEntry(documentId: string, entry: InternalDocumentEntry) {
   entryEl.innerHTML = "";
   entry.notes.forEach((note, noteIndex) => {
@@ -237,7 +284,7 @@ function renderEntry(documentId: string, entry: InternalDocumentEntry) {
     const { billableData } = note;
     const uncertain = new Set(billableData.uncertainty ?? []);
 
-    function addRow(labelText: string, value: string, onChange: (value: string) => void) {
+    function addRow(labelText: string, value: string, onChange: (value: string) => void, container: HTMLElement = fields) {
       const row = document.createElement("label");
       row.className = "billable-data-field";
       const labelEl = document.createElement("span");
@@ -251,7 +298,7 @@ function renderEntry(documentId: string, entry: InternalDocumentEntry) {
       });
       row.appendChild(labelEl);
       row.appendChild(input);
-      fields.appendChild(row);
+      container.appendChild(row);
     }
 
     if (billableData.customerDetails?.name || billableData.customerDetails?.address) {
@@ -278,37 +325,80 @@ function renderEntry(documentId: string, entry: InternalDocumentEntry) {
     }
 
     entryEl.appendChild(fields);
+
+    if (billableData.transcription) {
+      const details = document.createElement("details");
+      details.className = "analysis-details";
+      const summary = document.createElement("summary");
+      summary.textContent = "Analyse: erkannter Rohtext";
+      const transcriptionField = document.createElement("div");
+      transcriptionField.className = "billable-data-fields";
+      details.append(summary, transcriptionField);
+      entryEl.appendChild(details);
+
+      const label = uncertain.has("transcription") ? "Transkription (unsicher)" : "Transkription";
+      addRow(
+        label,
+        billableData.transcription,
+        (next) => {
+          reviewDocument(documentId, noteIndex, { transcription: next });
+        },
+        transcriptionField,
+      );
+    }
   });
 }
 
 interpretButton.addEventListener("click", async () => {
+  // Auto-save: Interpretieren always runs against a saved Document, never against
+  // live canvas strokes directly, so a fresh drawing is saved transparently first.
+  // This removes the separate "Speichern" step without changing what gets interpreted.
+  const strokes = input.getStrokes();
+  if (strokes.length > 0) {
+    const saved = saveDrawnNote(strokes);
+    selectedDocumentId = saved.id;
+    input.clear();
+    redrawDrawingCanvas();
+  }
+
   const document = getSelectedDocument();
   if (!document) {
-    entryEl.textContent = "Keine gespeicherte Notiz zum Interpretieren.";
+    statusEl.textContent = "Erst etwas zeichnen, dann interpretieren.";
     return;
   }
   if (document.reviewedInterpretation) {
     const confirmed = window.confirm("Erneutes Interpretieren ersetzt deine bisherigen Änderungen. Fortfahren?");
-    if (!confirmed) return;
+    if (!confirmed) {
+      renderSavedNotePreview();
+      renderDocumentList();
+      return;
+    }
   }
 
+  renderSavedNotePreview();
+  renderDocumentList();
   interpretButton.disabled = true;
-  entryEl.textContent = "Wird interpretiert …";
+  interpretLoading.dataset.active = "true";
   try {
     const adapter = currentAdapter();
     const job = sendForInterpretation(document.id, adapter);
     const settled = await job.settled;
     if (settled.status === "completed" && settled.result) {
       renderEntry(document.id, settled.result);
+      resultSection.hidden = false;
+      exportSection.hidden = false;
       statusEl.textContent = "Interpretiert. Bitte prüfen und freigeben.";
     } else {
       const { message } = describeJobError(settled);
       entryEl.textContent = message;
+      resultSection.hidden = false;
     }
   } catch (error) {
     entryEl.textContent = error instanceof Error ? error.message : String(error);
+    resultSection.hidden = false;
   } finally {
     interpretButton.disabled = false;
+    interpretLoading.dataset.active = "false";
     renderDocumentList();
   }
 });

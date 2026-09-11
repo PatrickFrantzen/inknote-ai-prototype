@@ -41,6 +41,12 @@ Can a user write a handwritten note on a tablet display and get a useful AI inte
 
 See [`docs/prototype-scope.md`](docs/prototype-scope.md).
 
+## UI structure
+
+See [`docs/ui-structure.md`](docs/ui-structure.md) for how the screen is
+organized (bottom nav, Notiz view, sheets) -- read it before adding a new
+button or section so it lands in the right place.
+
 ## Testing approach
 
 See [`docs/testing-strategy.md`](docs/testing-strategy.md).

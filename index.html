@@ -3,6 +3,10 @@
   PROTOTYPE UI. Throwaway first slice: draw a note on a tablet canvas, save
   it locally, then trigger a mocked AI interpretation. No real backend, no
   real LLM call -- see docs/prototype-scope.md for the full scope.
+
+  Layout: the Notiz view (drawing canvas + interpret + result + export) is
+  the only thing on screen by default. Provider config and the saved-notes
+  list live behind a bottom tab bar so they don't compete for attention.
 -->
 <html lang="de">
   <head>
@@ -10,16 +14,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>InkNote AI Prototype</title>
     <style>
+      :root {
+        --accent: #1d4ed8;
+        --accent-contrast: #fff;
+      }
+      * {
+        box-sizing: border-box;
+      }
       body {
         font-family: system-ui, sans-serif;
         margin: 0;
-        padding: 1.5rem;
+        padding: 1rem 1rem calc(5.5rem + env(safe-area-inset-bottom));
         background: #f5f5f4;
         color: #1c1917;
       }
       h1 {
-        font-size: 1.25rem;
+        font-size: 1.15rem;
         margin: 0 0 1rem;
+      }
+      h2 {
+        font-size: 0.95rem;
+        margin: 0 0 0.5rem;
+        color: #292524;
+      }
+      .hint {
+        font-size: 0.8rem;
+        color: #78716c;
+        margin: 0 0 0.5rem;
       }
       #drawing-canvas {
         touch-action: none;
@@ -35,6 +56,7 @@
         display: flex;
         gap: 0.75rem;
         margin: 1rem 0;
+        flex-wrap: wrap;
       }
       button {
         font-size: 1rem;
@@ -47,27 +69,44 @@
       button:active {
         background: #e7e5e4;
       }
-      .panels {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      .toolbar-edit button {
+        padding: 0.5rem 0.9rem;
+        font-size: 0.9rem;
+      }
+      .primary-actions {
+        margin: 1.25rem 0;
+      }
+      .primary-actions button {
+        font-size: 1.1rem;
+        font-weight: 600;
+        padding: 0.9rem 1.5rem;
+        background: var(--accent);
+        color: var(--accent-contrast);
+        border-color: var(--accent);
+        width: 100%;
+        max-width: 800px;
+      }
+      .secondary-action button {
+        border-color: #15803d;
+        color: #15803d;
+        font-weight: 600;
       }
       .panel {
         border: 1px solid #d6d3d1;
         border-radius: 8px;
         padding: 0.75rem;
         background: #fff;
-        min-height: 4rem;
-      }
-      .panel h2 {
-        font-size: 0.9rem;
-        margin: 0 0 0.5rem;
-        color: #57534e;
+        margin-bottom: 1rem;
       }
       #raw-note-preview {
         border: 1px dashed #d6d3d1;
         width: 100%;
-        height: 120px;
+        height: 100px;
+        display: block;
       }
       #interpreted-entry {
         font-size: 0.95rem;
@@ -91,8 +130,23 @@
         border-radius: 6px;
         border: 1px solid #d6d3d1;
       }
+      .analysis-details {
+        margin-top: 0.5rem;
+      }
+      .analysis-details summary {
+        cursor: pointer;
+        font-size: 0.85rem;
+        color: #57534e;
+      }
+      #document-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-height: 55vh;
+        overflow-y: auto;
+      }
       #document-list li {
-        padding: 0.4rem 0.5rem;
+        padding: 0.5rem 0.25rem;
         border-bottom: 1px solid #e7e5e4;
         cursor: pointer;
         font-size: 0.85rem;
@@ -117,72 +171,146 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        flex: 1;
+      }
+      #document-list .doc-delete {
+        margin-left: auto;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.85rem;
+        border-color: #b91c1c;
+        color: #b91c1c;
+        flex: 0 0 auto;
       }
       .status {
         font-size: 0.85rem;
         color: #78716c;
         margin-top: 0.25rem;
       }
-
-      /* Settings area: its own area at every breakpoint, never hidden. */
-      .settings-area {
-        margin-bottom: 1rem;
+      .export-explainer {
+        font-size: 0.8rem;
+        color: #78716c;
+        margin: 0.25rem 0 0.35rem;
       }
-
-      /* New-note action: emphasized on mobile/tablet (default), de-emphasized once
-         the editor is already visible alongside the list on desktop. */
-      .new-note-link {
-        display: block;
-        text-align: center;
-        text-decoration: none;
-        font-weight: 600;
-        color: #1c1917;
-        background: #fff;
-        border: 1px solid #44403c;
-        border-radius: 8px;
-        padding: 0.75rem 1.25rem;
+      .export-action {
         margin-bottom: 0.75rem;
       }
-      .new-note-link:active {
-        background: #e7e5e4;
-      }
 
-      /* Mobile/tablet (default): document list first and prominent, editor stacked below. */
-      .app-layout {
-        display: flex;
+      /* Loading overlay while an interpretation request is in flight. */
+      #interpret-loading {
+        position: fixed;
+        inset: 0;
+        background: rgba(245, 245, 244, 0.92);
+        display: none;
+        align-items: center;
+        justify-content: center;
         flex-direction: column;
         gap: 1rem;
+        z-index: 50;
       }
-      .area-documents {
-        order: -1;
+      #interpret-loading[data-active="true"] {
+        display: flex;
+      }
+      .spinner {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        border: 4px solid #d6d3d1;
+        border-top-color: var(--accent);
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
       }
 
-      /* Desktop: document list as a sidebar next to the current-document editor. */
+      /* Bottom tab bar: always visible, drives which sheet is shown. */
+      .bottom-nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        border-top: 1px solid #d6d3d1;
+        background: #fff;
+        padding-bottom: env(safe-area-inset-bottom);
+        z-index: 40;
+      }
+      .bottom-nav button {
+        flex: 1;
+        border: none;
+        border-radius: 0;
+        background: none;
+        padding: 0.65rem 0.25rem;
+        font-size: 0.8rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.15rem;
+        color: #78716c;
+      }
+      .bottom-nav button .nav-icon {
+        font-size: 1.25rem;
+      }
+      .bottom-nav button[aria-pressed="true"] {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      /* Sheets: settings + saved notes, slid in from the bottom over the note view. */
+      .sheet {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: 0;
+        background: #f5f5f4;
+        z-index: 30;
+        overflow-y: auto;
+        padding: 1rem 1rem calc(5.5rem + env(safe-area-inset-bottom));
+        display: none;
+      }
+      .sheet[data-open="true"] {
+        display: block;
+      }
+      .sheet-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+      }
+      .sheet-close {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.85rem;
+      }
+
       @media (min-width: 900px) {
-        .app-layout {
+        body {
+          padding: 1.5rem 1.5rem calc(1.5rem + 0px);
+          max-width: 800px;
+          margin: 0 auto;
+        }
+        .bottom-nav {
+          position: static;
+          border-top: none;
+          border-bottom: 1px solid #d6d3d1;
+          margin-bottom: 1rem;
+        }
+        .bottom-nav button {
           flex-direction: row;
-          align-items: flex-start;
         }
-        .area-documents {
-          order: 0;
-          flex: 0 0 320px;
-          position: sticky;
-          top: 1.5rem;
+        .sheet {
+          position: static;
+          padding: 0;
         }
-        .area-editor {
-          flex: 1 1 auto;
-          min-width: 0;
+        .sheet[data-open="false"] {
+          display: none;
         }
-        .new-note-link {
-          font-weight: 400;
-          padding: 0.5rem 0.75rem;
+        .sheet-close {
+          display: none;
         }
-      }
-
-      /* Let the three-way export/review grid wrap on medium widths instead of squeezing. */
-      @media (max-width: 700px) {
-        .panels {
-          grid-template-columns: 1fr;
+        #interpret-loading {
+          position: absolute;
         }
       }
     </style>
@@ -190,79 +318,117 @@
   <body>
     <h1>InkNote AI Prototype</h1>
 
-    <details class="panel settings-area">
-      <summary style="cursor: pointer; font-size: 0.9rem; color: #57534e">Einstellungen: Provider</summary>
-      <div class="controls" style="flex-wrap: wrap; margin-top: 0.75rem">
+    <nav class="bottom-nav" aria-label="Bereiche">
+      <button id="nav-tab-note" type="button" aria-pressed="true">
+        <span class="nav-icon">✏️</span>
+        <span>Notiz</span>
+      </button>
+      <button id="nav-tab-notes" type="button" aria-pressed="false">
+        <span class="nav-icon">🗂️</span>
+        <span>Notizen</span>
+      </button>
+      <button id="nav-tab-settings" type="button" aria-pressed="false">
+        <span class="nav-icon">⚙️</span>
+        <span>Einstellungen</span>
+      </button>
+    </nav>
+
+    <section id="view-note">
+      <canvas id="drawing-canvas"></canvas>
+
+      <div class="controls toolbar-edit">
+        <button id="pen-button" type="button" aria-pressed="true">Stift</button>
+        <button id="eraser-button" type="button" aria-pressed="false">Radierer</button>
+        <button id="undo-button" type="button">Rückgängig</button>
+        <button id="clear-button" type="button">Löschen</button>
+      </div>
+
+      <div class="controls primary-actions">
+        <button id="interpret-button" type="button">Interpretieren</button>
+      </div>
+      <p class="status" id="status"></p>
+
+      <div class="panel">
+        <h2>Gespeicherte Version</h2>
+        <canvas id="raw-note-preview"></canvas>
+      </div>
+
+      <div class="panel" id="result-section" hidden>
+        <h2>Ergebnis</h2>
+        <div id="interpreted-entry">Noch keine Interpretation.</div>
+        <div class="controls secondary-action">
+          <button id="approve-button" type="button">Freigeben</button>
+        </div>
+      </div>
+
+      <div class="panel" id="export-section" hidden>
+        <h2>Export</h2>
+
+        <div class="export-action">
+          <p class="export-explainer">Klartext-Zusammenfassung zum Einfügen in Dokumente oder E-Mails.</p>
+          <button id="export-office-button" type="button">Export: Bürotext</button>
+        </div>
+        <div class="export-action">
+          <p class="export-explainer">Nur abrechnungsrelevante Felder (Material, Menge, Zeit, Schätzung) – kein fertiger Rechnungsentwurf.</p>
+          <button id="export-invoice-button" type="button">Export: Rechnungsvorbereitung</button>
+        </div>
+        <div class="export-action">
+          <p class="export-explainer">Strukturierte Rohdaten zur Weiterverarbeitung in anderen Systemen.</p>
+          <button id="export-json-button" type="button">Export: JSON</button>
+        </div>
+
+        <textarea id="export-output" readonly rows="8" style="width: 100%; font: inherit"></textarea>
+        <div class="controls" style="margin-top: 0.5rem">
+          <button id="copy-export-button" type="button">In Zwischenablage kopieren</button>
+          <button id="download-json-button" type="button" hidden>JSON herunterladen</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="sheet" id="sheet-notes" data-open="false" aria-label="Gespeicherte Notizen">
+      <div class="sheet-header">
+        <h2 style="margin: 0">Gespeicherte Notizen</h2>
+        <button class="sheet-close" type="button" data-close-sheet>Schließen</button>
+      </div>
+      <div class="controls" style="margin: 0 0 0.5rem">
+        <input type="search" id="document-search" placeholder="Suchen …" style="flex: 1; padding: 0.5rem; border-radius: 6px; border: 1px solid #d6d3d1" />
+      </div>
+      <div class="controls" id="status-filter" style="margin: 0 0 0.5rem; font-size: 0.85rem">
+        <label><input type="checkbox" value="scribbled" checked /> scribbled</label>
+        <label><input type="checkbox" value="interpreted" checked /> interpreted</label>
+        <label><input type="checkbox" value="approved" checked /> approved</label>
+        <label><input type="checkbox" value="exported" checked /> exported</label>
+      </div>
+      <ul id="document-list"></ul>
+      <div class="controls" style="margin-top: 0.75rem">
+        <button id="export-workspace-button" type="button">Workspace exportieren</button>
+        <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem">
+          Workspace importieren
+          <input type="file" id="import-workspace-input" accept="application/json" />
+        </label>
+      </div>
+    </section>
+
+    <section class="sheet" id="sheet-settings" data-open="false" aria-label="Einstellungen">
+      <div class="sheet-header">
+        <h2 style="margin: 0">Einstellungen: Provider</h2>
+        <button class="sheet-close" type="button" data-close-sheet>Schließen</button>
+      </div>
+      <div class="controls" style="flex-direction: column; align-items: stretch">
         <input type="password" id="provider-api-key" placeholder="Optional: eigener API-Key (sonst Server-Standard)" style="padding: 0.5rem; border-radius: 6px; border: 1px solid #d6d3d1" />
         <select id="provider-model" style="padding: 0.5rem; border-radius: 6px; border: 1px solid #d6d3d1"></select>
         <input type="text" id="provider-model-custom" placeholder="Modell-ID (z.B. gemini-3.6-flash)" style="display: none; padding: 0.5rem; border-radius: 6px; border: 1px solid #d6d3d1" />
+        <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem">
+          <input type="checkbox" id="use-real-ai" checked />
+          Echte Gemini-Interpretation (Server muss laufen: <code>npm run server</code>)
+        </label>
         <button id="save-settings-button" type="button">Speichern</button>
       </div>
-    </details>
+    </section>
 
-    <div class="app-layout">
-      <div class="area-documents panel">
-        <h2>Gespeicherte Notizen</h2>
-        <a class="new-note-link" href="#drawing-canvas">+ Neue Notiz</a>
-        <div class="controls" style="margin: 0 0 0.5rem">
-          <input type="search" id="document-search" placeholder="Suchen …" style="flex: 1; padding: 0.5rem; border-radius: 6px; border: 1px solid #d6d3d1" />
-        </div>
-        <div class="controls" id="status-filter" style="margin: 0 0 0.5rem; font-size: 0.85rem; flex-wrap: wrap">
-          <label><input type="checkbox" value="scribbled" checked /> scribbled</label>
-          <label><input type="checkbox" value="interpreted" checked /> interpreted</label>
-          <label><input type="checkbox" value="approved" checked /> approved</label>
-          <label><input type="checkbox" value="exported" checked /> exported</label>
-        </div>
-        <ul id="document-list" style="list-style: none; margin: 0; padding: 0; max-height: 200px; overflow-y: auto"></ul>
-        <div class="controls" style="margin-top: 0.75rem; flex-wrap: wrap">
-          <button id="export-workspace-button" type="button">Workspace exportieren</button>
-          <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem">
-            Workspace importieren
-            <input type="file" id="import-workspace-input" accept="application/json" />
-          </label>
-        </div>
-      </div>
-
-      <div class="area-editor">
-        <canvas id="drawing-canvas"></canvas>
-
-        <div class="controls" style="flex-wrap: wrap">
-          <button id="pen-button" type="button" aria-pressed="true">Stift</button>
-          <button id="eraser-button" type="button" aria-pressed="false">Radierer</button>
-          <button id="undo-button" type="button">Rückgängig</button>
-          <button id="clear-button" type="button">Löschen</button>
-          <button id="save-button" type="button">Speichern</button>
-          <button id="interpret-button" type="button">Interpretieren</button>
-          <button id="approve-button" type="button">Freigeben</button>
-          <button id="export-office-button" type="button">Export: Bürotext</button>
-          <button id="export-invoice-button" type="button">Export: Rechnungsvorbereitung</button>
-          <button id="export-json-button" type="button">Export: JSON</button>
-          <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem">
-            <input type="checkbox" id="use-real-ai" checked />
-            Echte Gemini-Interpretation (Server muss laufen: <code>npm run server</code>)
-          </label>
-        </div>
-        <p class="status" id="status"></p>
-
-        <div class="panels">
-          <div class="panel">
-            <h2>Rohe Notiz (gespeichert)</h2>
-            <canvas id="raw-note-preview"></canvas>
-          </div>
-          <div class="panel">
-            <h2>Interner Dokumenteintrag (interpretiert)</h2>
-            <div id="interpreted-entry">Noch keine Interpretation.</div>
-          </div>
-          <div class="panel">
-            <h2>Export</h2>
-            <textarea id="export-output" readonly rows="8" style="width: 100%; font: inherit"></textarea>
-            <div class="controls" style="margin-top: 0.5rem">
-              <button id="copy-export-button" type="button">In Zwischenablage kopieren</button>
-              <button id="download-json-button" type="button" hidden>JSON herunterladen</button>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div id="interpret-loading" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Wird interpretiert …</p>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

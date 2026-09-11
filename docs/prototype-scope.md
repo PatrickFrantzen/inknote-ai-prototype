@@ -23,7 +23,9 @@ The first prototype is not tied to one trade. The intended users are people who 
 
 1. User opens a tablet-friendly PWA.
 2. User writes a note by hand on the display using a stylus.
-3. The app stores the handwritten note locally.
+3. The app stores the handwritten note locally, automatically, the moment the user
+   triggers interpretation (there is no separate manual save step -- see
+   `docs/ui-structure.md`).
 4. Later, when the user has good connectivity, they manually triggers AI interpretation.
 5. The app interprets the note into a structured internal document entry.
 6. The resulting text can be used for further processing outside the prototype.
